@@ -62,8 +62,8 @@ export default function MainNavigation() {
         onMouseEnter={() => null}
         onMouseLeave={() => setHovered(null)}
       >
-        <div className="max-w-screen-xl mx-auto px-4">
-          <ul className="flex items-center h-14 whitespace-nowrap overflow-x-auto">
+        <div className="max-w-screen-2xl mx-auto px-4">
+          <ul className="flex items-center h-14">
             {categories.map((cat, index) => (
               <React.Fragment key={cat.name}>
                 <li
