@@ -9,8 +9,11 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@radix-ui/react-dialog": "^1.1.14",
+    "@radix-ui/react-label": "^2.1.7",
     "@radix-ui/react-popover": "^1.1.14",
     "@radix-ui/react-slot": "^1.2.3",
+    "@radix-ui/react-switch": "^1.2.5",
     "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "^2.50.3",
     "class-variance-authority": "^0.7.1",
@@ -19,7 +22,9 @@
     "next": "15.3.5",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "tailwind-merge": "^3.3.1"
+    "swr": "^2.3.4",
+    "tailwind-merge": "^3.3.1",
+    "zustand": "^5.0.6"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

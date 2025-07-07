@@ -1,3 +1,4 @@
+import AlertMessage from '@/components/AlertMessage'
 import type { Metadata } from "next";
 import { Montserrat } from "next/font/google";
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -25,6 +26,7 @@ export default function RootLayout({
         className={`${montserrat.variable} font-sans antialiased`}
       >
         <AuthProvider>
+        <AlertMessage />
           {children}
         </AuthProvider>
       </body>

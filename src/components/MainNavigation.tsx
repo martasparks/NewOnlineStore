@@ -1,118 +1,59 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import { ChevronDown } from "lucide-react"
 import Link from "next/link"
 
-const categories = [
-  {
-    name: "AKCIJAS",
-    link: "#",
-  },
-  {
-    name: "VIRTUVE",
-    link: "#",
-    subitems: [
-      { name: "Virtuves skapīši", icon: "🏠" },
-      { name: "Virtuves galdi", icon: "🪑" },
-      { name: "Krēsli", icon: "🪑" },
-      { name: "Virtuves tehnika", icon: "🔧" },
-      { name: "Aksesuāri", icon: "✨" },
-    ]
-  },
-  {
-    name: "SKAPJI",
-    link: "#",
-    subitems: [
-      { name: "Bīdāmie skapji", icon: "🚪" },
-      { name: "Garderobes", icon: "👔" },
-      { name: "Apģērbu skapji", icon: "👗" },
-      { name: "Apavu skapīši", icon: "👠" },
-    ]
-  },
-  {
-    name: "MĪKSTĀS MĒBELES",
-    link: "#",
-    subitems: [
-      { name: "Dīvāni", icon: "🛋️" },
-      { name: "Stūra dīvāni", icon: "🛋️" },
-      { name: "Gultas", icon: "🛏️" },
-      { name: "Krēsli", icon: "🪑" },
-      { name: "Pufi", icon: "🪑" },
-    ]
-  },
-  {
-    name: "VIESISTABA",
-    link: "#",
-    subitems: [
-      { name: "TV galdi", icon: "📺" },
-      { name: "Vitrīnas", icon: "🏠" },
-      { name: "Plaukti", icon: "📚" },
-      { name: "Žurnālu galdiņi", icon: "☕" },
-    ]
-  },
-  {
-    name: "GUĻAMISTABA",
-    link: "#",
-    subitems: [
-      { name: "Gultas", icon: "🛏️" },
-      { name: "Naktiņgaldiņi", icon: "💡" },
-      { name: "Skapji", icon: "🚪" },
-      { name: "Tualetes galdiņi", icon: "💄" },
-    ]
-  },
-  {
-    name: "PRIEKŠNAMS",
-    link: "#",
-    subitems: [
-      { name: "Priekšnami", icon: "🏠" },
-      { name: "Apavu skapīši", icon: "👠" },
-      { name: "Pakaramie", icon: "🧥" },
-    ]
-  },
-  {
-    name: "BĒRNISTABA",
-    link: "#",
-    subitems: [
-      { name: "Gultas bērniem", icon: "🛏️" },
-      { name: "Rakstāmgaldi", icon: "✏️" },
-      { name: "Skapji", icon: "🚪" },
-      { name: "Spēļu zona", icon: "🎮" },
-    ]
-  },
-  {
-    name: "BIROJS",
-    link: "#",
-    subitems: [
-      { name: "Biroja krēsli", icon: "💺" },
-      { name: "Galdi", icon: "🪑" },
-      { name: "Plaukti", icon: "📚" },
-      { name: "Uzglabāšana", icon: "📋" },
-    ]
-  },
-  {
-    name: "MAZULIM",
-    link: "#",
-    subitems: [
-      { name: "Bērnu gultiņas", icon: "👶" },
-      { name: "Aksesuāri", icon: "✨" },
-      { name: "Barošanas krēsli", icon: "🍼" },
-    ]
-  },
-  {
-    name: "DĀRZA MĒBELES",
-    link: "#",
-    subitems: [
-      { name: "Komplekti", icon: "🌿" },
-      { name: "Krēsli", icon: "🪑" },
-      { name: "Galdi", icon: "🪑" },
-      { name: "Atpūtas mēbeles", icon: "☀️" },
-    ]
-  }
-]
-
 export default function MainNavigation() {
+  const [categories, setCategories] = useState<Category[]>([])
   const [hovered, setHovered] = useState<string | null>(null)
+
+  type Subcategory = {
+    id: string
+    name: string
+    slug: string
+    url: string
+    icon: string
+    meta_title: string
+    meta_description: string
+    order_index: number
+    is_active: boolean
+    category_id: string
+  }
+  
+  type Category = {
+    id: string
+    name: string
+    slug: string
+    url: string
+    meta_title: string
+    meta_description: string
+    order_index: number
+    is_active: boolean
+    created_at: string
+    updated_at: string
+    subitems: Subcategory[]
+  }
+
+  useEffect(() => {
+    const fetchData = async () => {
+      const res = await fetch('/api/navigation/categories')
+      const cats = await res.json()
+
+      const subRes = await fetch('/api/navigation/subcategories')
+      const subs = await subRes.json()
+
+      // Piesaisti subcategories pie kategorijām
+      const combined = cats.map((cat: any) => ({
+        ...cat,
+        subitems: subs.filter((s: any) => s.category_id === cat.id)
+      }))
+
+      setCategories(combined)
+    }
+
+    fetchData()
+  }, [])
 
   return (
     <nav className="bg-white border-t border-gray-200 text-sm relative">
@@ -130,7 +71,7 @@ export default function MainNavigation() {
                   className="relative group px-3 flex-shrink-0"
                 >
                   <Link
-                    href={cat.link}
+                    href={cat.url || '#'}
                     className="flex items-center gap-1.5 font-medium text-gray-700 hover:text-red-600 transition-colors duration-200 py-4 text-xs"
                   >
                     {cat.name}
