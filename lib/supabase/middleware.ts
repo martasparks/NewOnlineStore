@@ -7,7 +7,7 @@ export async function updateSession(request: NextRequest) {
     request,
   });
 
-  // If the env vars are not set, skip middleware check. You can remove this once you setup the project.
+  // If the env vars are not set, skip middleware check
   if (!hasEnvVars) {
     return supabaseResponse;
   }
@@ -35,40 +35,60 @@ export async function updateSession(request: NextRequest) {
     },
   );
 
-  // Do not run code between createServerClient and
-  // supabase.auth.getUser(). A simple mistake could make it very hard to debug
-  // issues with users being randomly logged out.
-
-  // IMPORTANT: DO NOT REMOVE auth.getUser()
-
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (
-    request.nextUrl.pathname !== "/" &&
-    !user &&
-    !request.nextUrl.pathname.startsWith("/login") &&
-    !request.nextUrl.pathname.startsWith("/auth")
-  ) {
-    // no user, potentially respond by redirecting the user to the login page
+  // Ja nav lietotāja un mēģina piekļūt admin panelim
+  if (request.nextUrl.pathname.startsWith("/admin") && !user) {
     const url = request.nextUrl.clone();
     url.pathname = "/auth/login";
     return NextResponse.redirect(url);
   }
 
-  // IMPORTANT: You *must* return the supabaseResponse object as it is.
-  // If you're creating a new response object with NextResponse.next() make sure to:
-  // 1. Pass the request in it, like so:
-  //    const myNewResponse = NextResponse.next({ request })
-  // 2. Copy over the cookies, like so:
-  //    myNewResponse.cookies.setAll(supabaseResponse.cookies.getAll())
-  // 3. Change the myNewResponse object to fit your needs, but avoid changing
-  //    the cookies!
-  // 4. Finally:
-  //    return myNewResponse
-  // If this is not done, you may be causing the browser and server to go out
-  // of sync and terminate the user's session prematurely!
+  // Ja ir lietotājs un mēģina piekļūt admin panelim, pārbaudām role (bet tikai middleware līmenī)
+  if (request.nextUrl.pathname.startsWith("/admin") && user) {
+    try {
+      // Mēģinām iegūt user profile, bet ja neizdodas, ļaujam React komponentes pārvaldīt
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+      // Ja ir kļūda (tabula neeksistē, nav tiesību, utt.), ļaujam React komponentes to pārvaldīt
+      if (error) {
+        console.log('Middleware: Could not check user role, delegating to React components');
+        // Nenovirzām nekur, ļaujam React komponentes to pārvaldīt
+        return supabaseResponse;
+      }
+
+      // Ja nav admin role un nav kļūdas
+      if (profile && profile.role !== 'admin') {
+        const url = request.nextUrl.clone();
+        url.pathname = "/auth/unauthorized";
+        return NextResponse.redirect(url);
+      }
+
+    } catch (error) {
+      // Ja ir neparedzēta kļūda, ļaujam React komponentes to pārvaldīt
+      console.log('Middleware: Unexpected error checking user role:', error);
+      return supabaseResponse;
+    }
+  }
+
+  // Pārējās lapas (ne-admin)
+  if (
+    request.nextUrl.pathname !== "/" &&
+    !user &&
+    !request.nextUrl.pathname.startsWith("/login") &&
+    !request.nextUrl.pathname.startsWith("/auth") &&
+    !request.nextUrl.pathname.startsWith("/admin")
+  ) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/auth/login";
+    return NextResponse.redirect(url);
+  }
 
   return supabaseResponse;
 }
