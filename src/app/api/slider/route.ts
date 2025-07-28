@@ -1,16 +1,26 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '../../../../lib/supabase/server'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const supabase = await createClient()
-  const { data, error } = await supabase
+  const { searchParams } = new URL(request.url)
+  const admin = searchParams.get('admin')
+
+  let query = supabase
     .from('homepage_slider')
     .select('*')
-    .eq('is_active', true)
     .order('order_index')
 
+  // Ja nav admin parametrs, rādām tikai aktīvos (publiskajai lapai)
+  if (!admin) {
+    query = query.eq('is_active', true)
+  }
+  // Ja ir admin parametrs, rādām visus slaiderus
+
+  const { data, error } = await query
+
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json(data ?? []) // Always return an array
+  return NextResponse.json(data ?? [])
 }
 
 export async function POST(req: Request) {

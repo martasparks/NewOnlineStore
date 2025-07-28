@@ -113,12 +113,27 @@ export default function CategoryModal({
   const handleSaveSub = () => {
     if (!editingSub?.name) return
     if (editingSub.id) {
-      // update
+      fetch('/api/navigation/subcategories', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editingSub),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (!data.id) {
+            setAlert('Neizdevās saglabāt apakškategoriju', 'error')
+            return
+          }
+          console.log('Updated subcategory:', data)
+        })
+        .catch((error) => {
+          console.error('Error updating subcategory:', error)
+          setAlert('Neizdevās atjaunināt apakškategoriju', 'error')
+        })
       setSubcategories((subs) =>
         subs.map((s) => (s.id === editingSub.id ? editingSub : s))
       )
     } else {
-      // create
       setSubcategories((subs) => [...subs, { ...editingSub!, id: undefined }])
     }
     setEditingSub(null)
@@ -147,7 +162,11 @@ export default function CategoryModal({
     }
 
     try {
-      // 1. Save category
+      if (!category.name || !category.slug) {
+        setAlert('Lūdzu aizpildiet visus obligātos laukus', 'error')
+        setIsLoading(false)
+        return
+      }
       const res = await fetch('/api/navigation/categories', {
         method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -165,8 +184,11 @@ export default function CategoryModal({
       }
 
       const catId = savedCategory.id
-
-      // 2. Save each subcategory
+      if (!catId) {
+        setAlert('Kategorijas ID nav atrasts', 'error')
+        setIsLoading(false)
+        return
+      }
       for (const sub of subcategories) {
         const method = sub.id ? 'PUT' : 'POST'
         await fetch('/api/navigation/subcategories', {
@@ -209,7 +231,6 @@ export default function CategoryModal({
         </DialogHeader>
 
         <div className="space-y-8">
-          {/* Category Basic Info */}
           <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
             <div className="flex items-center mb-4">
               <Tags className="w-5 h-5 text-blue-600 mr-2" />
@@ -218,7 +239,7 @@ export default function CategoryModal({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="name" className="text-sm font-medium text-gray-700">
-                  Nosaukums *
+                  Nosaukums
                 </Label>
                 <Input
                   id="name"
@@ -231,7 +252,7 @@ export default function CategoryModal({
               </div>
               <div className="space-y-2">
                 <Label htmlFor="slug" className="text-sm font-medium text-gray-700">
-                  Slug *
+                  Slug
                 </Label>
                 <Input
                   id="slug"
@@ -289,7 +310,6 @@ export default function CategoryModal({
             </div>
           </div>
 
-          {/* SEO Settings */}
           <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
             <div className="flex items-center mb-4">
               <FileText className="w-5 h-5 text-green-600 mr-2" />
@@ -326,7 +346,6 @@ export default function CategoryModal({
             </div>
           </div>
 
-          {/* Subcategories */}
           <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center">
@@ -401,7 +420,6 @@ export default function CategoryModal({
               </div>
             )}
 
-            {/* Edit Subcategory Form */}
             {editingSub && (
               <div className="mt-6 p-6 bg-gradient-to-r from-purple-50 to-purple-100 rounded-xl border border-purple-200">
                 <h4 className="text-lg font-semibold text-purple-900 mb-4">
@@ -488,7 +506,6 @@ export default function CategoryModal({
           </div>
         </div>
 
-        {/* Footer Actions */}
         <div className="flex gap-4 pt-6 border-t border-gray-200">
           <Button 
             onClick={handleSubmit} 

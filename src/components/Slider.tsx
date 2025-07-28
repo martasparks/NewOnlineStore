@@ -10,7 +10,7 @@ interface Slide {
   subtitle: string
   description: string
   button_text: string
-  button_link: string
+  button_url: string
   image_desktop: string
   image_mobile: string
   order_index: number
@@ -64,9 +64,9 @@ export default function Slider({ slides }: SliderProps) {
                 <p className="text-sm md:text-base">{slide.subtitle}</p>
                 <h2 className="text-xl md:text-3xl font-bold">{slide.title}</h2>
                 <p className="text-sm md:text-base mt-2 max-w-xl">{slide.description}</p>
-                {slide.button_text && slide.button_link && (
+                {slide.button_text && slide.button_url && (
                 <a
-                    href={slide.button_link}
+                    href={slide.button_url}
                     className="mt-4 inline-block bg-white text-black px-4 py-2 rounded"
                 >
                     {slide.button_text}
