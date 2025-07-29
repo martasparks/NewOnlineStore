@@ -9,6 +9,8 @@ interface AuthContextType extends AuthState {
   signUp: (email: string, password: string) => Promise<{ error: string | null }>
   signOut: () => Promise<void>
   resetPassword: (email: string) => Promise<{ error: string | null }>
+  signInWithGoogle: () => Promise<{ error: string | null }>
+  signInWithFacebook: () => Promise<{ error: string | null }>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -114,6 +116,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  const signInWithGoogle = async () => {
+    try {
+      setState(prev => ({ ...prev, loading: true, error: null }))
+      
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`
+        }
+      })
+
+      if (error) {
+        setState(prev => ({ ...prev, error: error.message, loading: false }))
+        return { error: error.message }
+      }
+
+      // OAuth nenosaka loading uz false, jo notiek pāradresēšana
+      return { error: null }
+    } catch (error) {
+      const errorMessage = 'Neizdevās pieteikties ar Google'
+      setState(prev => ({ ...prev, error: errorMessage, loading: false }))
+      return { error: errorMessage }
+    }
+  }
+
+  const signInWithFacebook = async () => {
+    try {
+      setState(prev => ({ ...prev, loading: true, error: null }))
+      
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'facebook',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`
+        }
+      })
+
+      if (error) {
+        setState(prev => ({ ...prev, error: error.message, loading: false }))
+        return { error: error.message }
+      }
+
+      // OAuth nenosaka loading uz false, jo notiek pāradresēšana
+      return { error: null }
+    } catch (error) {
+      const errorMessage = 'Neizdevās pieteikties ar Facebook'
+      setState(prev => ({ ...prev, error: errorMessage, loading: false }))
+      return { error: errorMessage }
+    }
+  }
+
   const signOut = async () => {
     try {
       setState(prev => ({ ...prev, loading: true }))
@@ -146,7 +198,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signIn,
       signUp,
       signOut,
-      resetPassword
+      resetPassword,
+      signInWithGoogle,
+      signInWithFacebook
     }}>
       {children}
     </AuthContext.Provider>

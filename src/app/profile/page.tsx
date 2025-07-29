@@ -78,6 +78,8 @@ export default function ProfilePage() {
         // Ja nav profila, izveidojam jaunu
         if (error.code === 'PGRST116') {
           await createProfile()
+        } else {
+          setAlert('Neizdevās ielādēt profilu', 'error')
         }
       } else {
         setProfile(data)
@@ -91,16 +93,25 @@ export default function ProfilePage() {
   }
 
   const createProfile = async () => {
+    if (!user) {
+      setAlert('Lietotājs nav atrasts', 'error')
+      return
+    }
+
     try {
       const newProfile = {
-        id: user?.id,
-        email: user?.email,
-        role: 'user',
-        full_name: '',
-        phone: '',
+        id: user.id,
+        email: user.email || '',
+        role: 'user' as const,
+        full_name: user.user_metadata?.full_name || '',
+        phone: user.user_metadata?.phone || '',
         company: '',
-        notifications_enabled: true
+        notifications_enabled: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       }
+
+      console.log('Creating profile with data:', newProfile)
 
       const { data, error } = await supabase
         .from('profiles')
@@ -108,7 +119,12 @@ export default function ProfilePage() {
         .select()
         .single()
 
-      if (error) throw error
+      if (error) {
+        console.error('Error creating profile:', error)
+        throw error
+      }
+
+      console.log('Profile created successfully:', data)
       setProfile(data)
       setAlert('Profils izveidots', 'success')
     } catch (error) {
@@ -119,20 +135,20 @@ export default function ProfilePage() {
 
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!profile) return
+    if (!profile || !user) return
 
     setSaving(true)
     try {
       const { error } = await supabase
         .from('profiles')
         .update({
-          full_name: profile.full_name,
-          phone: profile.phone,
-          company: profile.company,
-          notifications_enabled: profile.notifications_enabled,
+          full_name: profile.full_name || '',
+          phone: profile.phone || '',
+          company: profile.company || '',
+          notifications_enabled: profile.notifications_enabled ?? true,
           updated_at: new Date().toISOString()
         })
-        .eq('id', user?.id)
+        .eq('id', user.id)
 
       if (error) throw error
       setAlert('Profils atjaunināts veiksmīgi', 'success')
@@ -480,7 +496,7 @@ export default function ProfilePage() {
                   onCheckedChange={(checked) => {
                     setProfile(prev => prev ? {...prev, notifications_enabled: checked} : null)
                     // Saglabājam uzreiz
-                    if (profile) {
+                    if (profile && user) {
                       supabase
                         .from('profiles')
                         .update({ notifications_enabled: checked })
