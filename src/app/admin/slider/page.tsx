@@ -174,12 +174,12 @@ export default function SliderAdminPage() {
                     )}
 
                     {/* Button Info */}
-                    {slide.button_text && slide.button_link && (
+                    {slide.button_text && slide.button_url && (
                       <div className="flex items-center space-x-2 text-sm">
                         <ArrowRight className="w-4 h-4 text-blue-600" />
                         <span className="text-blue-600 font-medium">{slide.button_text}</span>
                         <span className="text-gray-400">→</span>
-                        <span className="text-gray-600">{slide.button_link}</span>
+                        <span className="text-gray-600">{slide.button_url}</span>
                       </div>
                     )}
 
@@ -293,12 +293,12 @@ export default function SliderAdminPage() {
                     )}
 
                     {/* Button Info */}
-                    {slide.button_text && slide.button_link && (
+                    {slide.button_text && slide.button_url && (
                       <div className="flex items-center space-x-2 text-sm">
                         <ArrowRight className="w-4 h-4 text-gray-500" />
                         <span className="text-gray-600 font-medium">{slide.button_text}</span>
                         <span className="text-gray-400">→</span>
-                        <span className="text-gray-500">{slide.button_link}</span>
+                        <span className="text-gray-500">{slide.button_url}</span>
                       </div>
                     )}
 

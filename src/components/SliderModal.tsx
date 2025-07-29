@@ -60,6 +60,28 @@ export default function SliderModal({
 
   const { setAlert } = useAlert()
 
+  const handleImageUpload = async (file: File, type: "desktop" | "mobile") => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("folder", "slider");
+
+    const res = await fetch("/api/upload", {
+      method: "POST",
+      body: formData,
+    });
+
+    const data = await res.json();
+
+    if (res.ok) {
+      setSlide(prev => ({
+        ...prev,
+        [type === "desktop" ? "image_desktop" : "image_mobile"]: data.url,
+      }));
+    } else {
+      setAlert(data.error || "Neizdevās augšupielādēt attēlu", "error");
+    }
+  };
+
   useEffect(() => {
     if (initialData) {
       setSlide({
@@ -230,12 +252,12 @@ export default function SliderModal({
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="button_link" className="text-sm font-medium text-gray-700">
+                <Label htmlFor="button_url" className="text-sm font-medium text-gray-700">
                   Pogas saite
                 </Label>
                 <Input
-                  id="button_link"
-                  name="button_link"
+                  id="button_url"
+                  name="button_url"
                   value={slide.button_url}
                   onChange={handleChange}
                   placeholder="/produkti"
@@ -253,73 +275,29 @@ export default function SliderModal({
             </div>
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Desktop Image */}
-              <div className="space-y-4">
-                <div className="flex items-center space-x-2 mb-2">
-                  <Monitor className="w-4 h-4 text-gray-600" />
-                  <Label className="text-sm font-medium text-gray-700">Desktop attēls</Label>
-                </div>
-                <Input
-                  name="image_desktop"
-                  value={slide.image_desktop}
-                  onChange={handleChange}
-                  placeholder="https://example.com/desktop-image.jpg"
-                  className="w-full"
-                />
-                {slide.image_desktop && (
-                  <div className="mt-3">
-                    <div className="relative w-full h-32 bg-gray-100 rounded-lg overflow-hidden border">
-                      <img
-                        src={slide.image_desktop}
-                        alt="Desktop preview"
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none'
-                          const sibling = e.currentTarget.nextElementSibling as HTMLElement | null
-                          if (sibling) sibling.style.display = 'flex'
-                        }}
-                      />
-                      <div className="hidden absolute inset-0 flex items-center justify-center bg-gray-100 text-gray-500 text-sm">
-                        Neizdevās ielādēt attēlu
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
 
-              {/* Mobile Image */}
-              <div className="space-y-4">
-                <div className="flex items-center space-x-2 mb-2">
-                  <Smartphone className="w-4 h-4 text-gray-600" />
-                  <Label className="text-sm font-medium text-gray-700">Mobilais attēls</Label>
-                </div>
-                <Input
-                  name="image_mobile"
-                  value={slide.image_mobile}
-                  onChange={handleChange}
-                  placeholder="https://example.com/mobile-image.jpg"
-                  className="w-full"
-                />
-                {slide.image_mobile && (
-                  <div className="mt-3">
-                    <div className="relative w-full h-32 bg-gray-100 rounded-lg overflow-hidden border">
-                      <img
-                        src={slide.image_mobile}
-                        alt="Mobile preview"
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none'
-                          const sibling = e.currentTarget.nextElementSibling as HTMLElement | null
-                          if (sibling) sibling.style.display = 'flex'
-                        }}
-                      />
-                      <div className="hidden absolute inset-0 flex items-center justify-center bg-gray-100 text-gray-500 text-sm">
-                        Neizdevās ielādēt attēlu
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
+            <div className="space-y-2">
+              <Label>Attēls (Desktop)</Label>
+              <Input type="file" accept="image/*" onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleImageUpload(file, "desktop");
+              }} />
+              {slide.image_desktop && (
+                <img src={slide.image_desktop} alt="Desktop preview" className="mt-2 rounded max-h-40" />
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label>Attēls (Mobile)</Label>
+              <Input type="file" accept="image/*" onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleImageUpload(file, "mobile");
+              }} />
+              {slide.image_mobile && (
+                <img src={slide.image_mobile} alt="Mobile preview" className="mt-2 rounded max-h-40" />
+              )}
+            </div>
+
             </div>
           </div>
 
