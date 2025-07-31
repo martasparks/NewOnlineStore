@@ -9,6 +9,8 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { createClient } from '../../../lib/supabase/client'
 import { useAlert } from '../../../lib/store/alert'
+import Header from '@/components/Header'
+import MainNavigation from '@/components/MainNavigation'
 import {
   User,
   Mail,
@@ -17,15 +19,12 @@ import {
   Calendar,
   Save,
   Lock,
-  LogOut,
-  ArrowLeft,
   Settings,
   Bell,
   Shield,
   AlertCircle,
   CheckCircle
 } from 'lucide-react'
-import Link from 'next/link'
 
 interface UserProfile {
   id: string
@@ -75,14 +74,17 @@ export default function ProfilePage() {
 
       if (error) {
         console.error('Error fetching profile:', error)
-        // Ja nav profila, izveidojam jaunu
         if (error.code === 'PGRST116') {
           await createProfile()
         } else {
           setAlert('Neizdevās ielādēt profilu', 'error')
         }
       } else {
-        setProfile(data)
+        const profileWithMetadata = {
+          ...data,
+          full_name: data.full_name || user?.user_metadata?.full_name || user?.user_metadata?.name || ''
+        }
+        setProfile(profileWithMetadata)
       }
     } catch (error) {
       console.error('Profile fetch failed:', error)
@@ -99,11 +101,16 @@ export default function ProfilePage() {
     }
 
     try {
+      const displayName = user.user_metadata?.full_name || 
+                         user.user_metadata?.name || 
+                         user.user_metadata?.display_name || 
+                         ''
+
       const newProfile = {
         id: user.id,
         email: user.email || '',
         role: 'user' as const,
-        full_name: user.user_metadata?.full_name || '',
+        full_name: displayName,
         phone: user.user_metadata?.phone || '',
         company: '',
         notifications_enabled: true,
@@ -111,20 +118,14 @@ export default function ProfilePage() {
         updated_at: new Date().toISOString()
       }
 
-      console.log('Creating profile with data:', newProfile)
-
       const { data, error } = await supabase
         .from('profiles')
         .insert([newProfile])
         .select()
         .single()
 
-      if (error) {
-        console.error('Error creating profile:', error)
-        throw error
-      }
+      if (error) throw error
 
-      console.log('Profile created successfully:', data)
       setProfile(data)
       setAlert('Profils izveidots', 'success')
     } catch (error) {
@@ -151,6 +152,16 @@ export default function ProfilePage() {
         .eq('id', user.id)
 
       if (error) throw error
+      
+      if (profile.full_name !== user.user_metadata?.full_name) {
+        await supabase.auth.updateUser({
+          data: { 
+            full_name: profile.full_name,
+            name: profile.full_name 
+          }
+        })
+      }
+      
       setAlert('Profils atjaunināts veiksmīgi', 'success')
     } catch (error) {
       console.error('Error updating profile:', error)
@@ -194,10 +205,14 @@ export default function ProfilePage() {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-red-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Ielādē profilu...</p>
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+        <Header />
+        <MainNavigation />
+        <div className="flex items-center justify-center py-20">
+          <div className="text-center">
+            <div className="w-12 h-12 border-4 border-red-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-gray-600">Ielādē profilu...</p>
+          </div>
         </div>
       </div>
     )
@@ -207,14 +222,18 @@ export default function ProfilePage() {
 
   if (!profile) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
-        <div className="bg-white rounded-2xl shadow-xl p-8 text-center max-w-md">
-          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Profils nav atrasts</h1>
-          <p className="text-gray-600 mb-6">Neizdevās ielādēt jūsu profila informāciju.</p>
-          <Button onClick={() => window.location.reload()}>
-            Mēģināt vēlreiz
-          </Button>
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+        <Header />
+        <MainNavigation />
+        <div className="flex items-center justify-center py-20">
+          <div className="bg-white rounded-2xl shadow-xl p-8 text-center max-w-md">
+            <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Profils nav atrasts</h1>
+            <p className="text-gray-600 mb-6">Neizdevās ielādēt jūsu profila informāciju.</p>
+            <Button onClick={() => window.location.reload()}>
+              Mēģināt vēlreiz
+            </Button>
+          </div>
         </div>
       </div>
     )
@@ -222,34 +241,10 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-4xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Link href="/">
-                <Button variant="ghost" size="sm">
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Atpakaļ uz sākumlapu
-                </Button>
-              </Link>
-              <div className="h-6 w-px bg-gray-300"></div>
-              <h1 className="text-xl font-semibold text-gray-900">Mans profils</h1>
-            </div>
-            
-            <Button 
-              variant="outline" 
-              onClick={signOut}
-              className="text-red-600 hover:bg-red-50"
-            >
-              <LogOut className="w-4 h-4 mr-2" />
-              Iziet
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <Header />
+      <MainNavigation />
+      
+      <div className="max-w-6xl mx-auto px-4 py-8">
         {/* Profile Header */}
         <div className="bg-gradient-to-r from-red-500 to-pink-600 rounded-2xl p-8 text-white shadow-xl mb-8">
           <div className="flex items-center space-x-6">
@@ -495,7 +490,6 @@ export default function ProfilePage() {
                   checked={profile.notifications_enabled ?? true}
                   onCheckedChange={(checked) => {
                     setProfile(prev => prev ? {...prev, notifications_enabled: checked} : null)
-                    // Saglabājam uzreiz
                     if (profile && user) {
                       supabase
                         .from('profiles')
