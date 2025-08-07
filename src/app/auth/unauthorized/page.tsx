@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Shield, ArrowLeft, Home, User, LogOut } from 'lucide-react'
+import { Shield, Home, User, LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/contexts/AuthContext'
 
@@ -10,7 +10,7 @@ export default function UnauthorizedPage() {
 
  return (
    <div className="min-h-screen bg-gradient-to-br from-red-50 via-orange-50 to-yellow-50 flex items-center justify-center p-4 relative overflow-hidden">
-     {/* Background decorative elements */}
+     
      <div className="absolute inset-0 overflow-hidden">
        <div className="absolute -top-40 -right-40 w-80 h-80 bg-red-200/30 rounded-full blur-3xl"></div>
        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-orange-200/30 rounded-full blur-3xl"></div>
@@ -18,16 +18,12 @@ export default function UnauthorizedPage() {
      </div>
 
      <div className="relative z-10 bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl border border-white/20 w-full max-w-lg p-10 text-center">
-       {/* Animated icon container */}
+       
        <div className="relative mb-8">
          <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-r from-red-500 to-orange-500 rounded-full mb-6 shadow-lg animate-pulse">
            <Shield className="w-12 h-12 text-white drop-shadow-lg" />
          </div>
-         
-         {/* Warning indicator */}
-         <div className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center shadow-lg animate-bounce">
-           <span className="text-white text-xs font-bold">!</span>
-         </div>
+
        </div>
 
        <div className="space-y-6">
@@ -46,7 +42,6 @@ export default function UnauthorizedPage() {
            </p>
          </div>
 
-         {/* Info card */}
          <div className="bg-gradient-to-r from-red-50 to-orange-50 border border-red-100 rounded-2xl p-6">
            <div className="flex items-center justify-center space-x-3 mb-3">
              <User className="w-5 h-5 text-red-600" />
@@ -58,7 +53,6 @@ export default function UnauthorizedPage() {
            </p>
          </div>
 
-         {/* Action buttons */}
          <div className="space-y-3 pt-4">
            <Link href="/" className="block">
              <Button className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white py-3 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200">
@@ -77,7 +71,6 @@ export default function UnauthorizedPage() {
            </Button>
          </div>
 
-         {/* Help text */}
          <div className="pt-4 border-t border-gray-100">
            <p className="text-xs text-gray-400">
              Nepieciešama palīdzība? Sazinieties ar{' '}

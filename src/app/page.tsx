@@ -2,7 +2,6 @@ import Header from "@/components/Header"
 import MainNavigation from "@/components/MainNavigation"
 import Slider from "@/components/Slider";
 
-// Server komponente - pārceļam fetch uz server side
 async function getSlides() {
   try {
     const res = await fetch(`${process.env.NODE_ENV === 'production' ? 'https://yourdomain.com' : 'http://localhost:3000'}/api/slider`, { 
@@ -27,7 +26,7 @@ export default async function Home() {
       <MainNavigation />
       <Slider slides={slides} />
       <main className="px-4 md:px-8 mt-8">
-        {/* cits saturs */}
+        
       </main>
     </div>
   );

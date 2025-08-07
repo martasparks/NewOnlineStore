@@ -1,4 +1,5 @@
 'use client'
+
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -45,10 +46,8 @@ export default function AdminLayout({
     }
 
     if (user) {
-      // Pārbaudām lietotāja lomu
       const checkUserRole = async () => {
         try {
-          // Mēģinām iegūt user profilu
           const { data: profile, error } = await supabase
             .from('profiles')
             .select('role')
@@ -56,41 +55,34 @@ export default function AdminLayout({
             .single()
 
           if (error) {
-            // Ja kļūda ir "row not found" vai līdzīga, izveidojam profilu
             if (error.code === 'PGRST116' || error.message.includes('No rows')) {
               console.log('User profile not found, creating default profile...')
               
-              // Mēģinām izveidot jaunu profilu ar default "user" role
               const { data: newProfile, error: insertError } = await supabase
                 .from('profiles')
                 .insert([{
                   id: user.id,
                   email: user.email,
-                  role: 'user' // Default role
+                  role: 'user'
                 }])
                 .select()
                 .single()
 
               if (insertError) {
                 console.error('Error creating user profile:', insertError)
-                // Ja nevar izveidot profilu, pieņemam ka ir user
                 setUserRole('user')
               } else {
                 setUserRole(newProfile.role)
               }
             } else {
-              // Cita veida kļūda
               console.error('Error fetching user role:', error)
               setHasError(true)
-              // Pieņemam ka ir user, ja nevar piekļūt datubāzei
               setUserRole('user')
             }
           } else {
-            // Profils atrasts
             setUserRole(profile.role)
           }
 
-          // Ja nav admin, bet mēģina piekļūt admin panelim
           const finalRole = profile?.role || 'user'
           if (finalRole !== 'admin') {
             router.push('/auth/unauthorized')
@@ -100,7 +92,6 @@ export default function AdminLayout({
         } catch (error) {
           console.error('Role check failed:', error)
           setHasError(true)
-          // Nevirzām uz login, bet pieņemam user role
           setUserRole('user')
         } finally {
           setRoleLoading(false)
@@ -111,7 +102,6 @@ export default function AdminLayout({
     }
   }, [user, loading, router, supabase])
 
-  // Ja vēl ielādējas
   if (loading || roleLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
@@ -123,10 +113,8 @@ export default function AdminLayout({
     )
   }
 
-  // Ja nav lietotāja
   if (!user) return null
 
-  // Ja ir kļūda, bet lietotājs ir pieteicies, parādām brīdinājumu bet ļaujam turpināt
   if (hasError && userRole !== 'admin') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
@@ -153,7 +141,6 @@ export default function AdminLayout({
     )
   }
 
-  // Ja nav admin role
   if (userRole !== 'admin') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
@@ -180,7 +167,7 @@ export default function AdminLayout({
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      {/* Header */}
+
       <header className="bg-white shadow-lg border-b border-gray-200">
         <div className="px-6 py-4">
           <div className="flex items-center justify-between">
@@ -226,7 +213,6 @@ export default function AdminLayout({
         </div>
       </header>
 
-      {/* Navigation */}
       <nav className="bg-white border-b border-gray-200 shadow-sm">
         <div className="px-6">
           <div className="flex space-x-8 overflow-x-auto">
@@ -244,7 +230,6 @@ export default function AdminLayout({
         </div>
       </nav>
 
-      {/* Main Content */}
       <main className="px-6 py-8">
         <div className="max-w-7xl mx-auto">
           {children}

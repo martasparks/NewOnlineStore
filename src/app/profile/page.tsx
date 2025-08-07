@@ -39,7 +39,7 @@ interface UserProfile {
 }
 
 export default function ProfilePage() {
-  const { user, signOut, loading: authLoading } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const { setAlert } = useAlert()
   const router = useRouter()
   const supabase = createClient()
@@ -245,7 +245,6 @@ export default function ProfilePage() {
       <MainNavigation />
       
       <div className="max-w-6xl mx-auto px-4 py-8">
-        {/* Profile Header */}
         <div className="bg-gradient-to-r from-red-500 to-pink-600 rounded-2xl p-8 text-white shadow-xl mb-8">
           <div className="flex items-center space-x-6">
             <div className="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center">
@@ -264,7 +263,7 @@ export default function ProfilePage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Profile Information */}
+
           <div className="lg:col-span-2 space-y-6">
             <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
               <div className="flex items-center mb-6">
@@ -359,7 +358,6 @@ export default function ProfilePage() {
               </form>
             </div>
 
-            {/* Password Change */}
             <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
               <div className="flex items-center mb-6">
                 <Lock className="w-5 h-5 text-orange-600 mr-2" />
@@ -455,9 +453,8 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* Sidebar */}
           <div className="space-y-6">
-            {/* Account Status */}
+
             <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
               <div className="flex items-center mb-4">
                 <CheckCircle className="w-5 h-5 text-green-600 mr-2" />
@@ -475,7 +472,6 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* Notification Settings */}
             <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
               <div className="flex items-center mb-4">
                 <Bell className="w-5 h-5 text-blue-600 mr-2" />
@@ -502,7 +498,6 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* Account Info */}
             <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
               <div className="flex items-center mb-4">
                 <Calendar className="w-5 h-5 text-purple-600 mr-2" />

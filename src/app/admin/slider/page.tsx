@@ -7,11 +7,10 @@ import { Plus, Pencil, Trash, Image, Settings, Eye, ArrowRight, Monitor, Smartph
 import SliderModal from '../../../components/SliderModal'
 import { useAlert } from '../../../../lib/store/alert'
 
-// Modificēts fetcher, lai admin panelī dabūtu visus slaiderus
 const fetcher = (url: string) => fetch(url).then(res => res.json())
 
 export default function SliderAdminPage() {
-  // Pievieno admin parametru, lai dabūtu visus slaiderus
+
   const { data: slides, mutate } = useSWR('/api/slider?admin=true', fetcher)
   const [modalOpen, setModalOpen] = useState(false)
   const [selected, setSelected] = useState<any>(null)
@@ -50,7 +49,7 @@ export default function SliderAdminPage() {
 
   return (
     <div className="space-y-8">
-      {/* Header Section */}
+
       <div className="bg-gradient-to-r from-purple-500 to-pink-600 rounded-2xl p-8 text-white shadow-xl">
         <div className="flex items-center justify-between">
           <div>
@@ -73,7 +72,6 @@ export default function SliderAdminPage() {
         </div>
       </div>
 
-      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
           <div className="flex items-center justify-between mb-4">
@@ -112,7 +110,6 @@ export default function SliderAdminPage() {
         </div>
       </div>
 
-      {/* Active Slides */}
       {activeSlides.length > 0 && (
         <div className="space-y-4">
           <h2 className="text-xl font-semibold text-gray-900 flex items-center">
@@ -122,7 +119,7 @@ export default function SliderAdminPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {activeSlides.map((slide: any) => (
               <div key={slide.id} className="bg-white rounded-xl shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300 overflow-hidden">
-                {/* Slide Header */}
+
                 <div className="bg-gradient-to-r from-emerald-50 to-emerald-100 p-6 border-b border-emerald-200">
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex-1">
@@ -165,15 +162,13 @@ export default function SliderAdminPage() {
                   </div>
                 </div>
 
-                {/* Slide Content */}
                 <div className="p-6">
                   <div className="space-y-4">
-                    {/* Description */}
+
                     {slide.description && (
                       <p className="text-sm text-gray-600 line-clamp-2">{slide.description}</p>
                     )}
 
-                    {/* Button Info */}
                     {slide.button_text && slide.button_url && (
                       <div className="flex items-center space-x-2 text-sm">
                         <ArrowRight className="w-4 h-4 text-blue-600" />
@@ -183,7 +178,6 @@ export default function SliderAdminPage() {
                       </div>
                     )}
 
-                    {/* Images Preview */}
                     <div className="grid grid-cols-2 gap-4 mt-4">
                       <div className="space-y-2">
                         <div className="flex items-center space-x-1 text-xs text-gray-500">
@@ -236,7 +230,6 @@ export default function SliderAdminPage() {
         </div>
       )}
 
-      {/* Inactive Slides */}
       {inactiveSlides.length > 0 && (
         <div className="space-y-4">
           <h2 className="text-xl font-semibold text-gray-900 flex items-center">
@@ -246,7 +239,7 @@ export default function SliderAdminPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {inactiveSlides.map((slide: any) => (
               <div key={slide.id} className="bg-white rounded-xl shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300 overflow-hidden opacity-75">
-                {/* Slide Header */}
+
                 <div className="bg-gradient-to-r from-gray-50 to-gray-100 p-6 border-b border-gray-200">
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex-1">
@@ -284,15 +277,13 @@ export default function SliderAdminPage() {
                   </div>
                 </div>
 
-                {/* Slide Content - tagad rādam saturu arī neaktīvajiem */}
                 <div className="p-6">
                   <div className="space-y-4">
-                    {/* Description */}
+
                     {slide.description && (
                       <p className="text-sm text-gray-600 line-clamp-2">{slide.description}</p>
                     )}
 
-                    {/* Button Info */}
                     {slide.button_text && slide.button_url && (
                       <div className="flex items-center space-x-2 text-sm">
                         <ArrowRight className="w-4 h-4 text-gray-500" />
@@ -302,7 +293,6 @@ export default function SliderAdminPage() {
                       </div>
                     )}
 
-                    {/* Images Preview */}
                     <div className="grid grid-cols-2 gap-4 mt-4">
                       <div className="space-y-2">
                         <div className="flex items-center space-x-1 text-xs text-gray-500">
@@ -361,7 +351,6 @@ export default function SliderAdminPage() {
         </div>
       )}
 
-      {/* Empty State */}
       {(!slides || slides.length === 0) && (
         <div className="text-center py-12">
           <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">

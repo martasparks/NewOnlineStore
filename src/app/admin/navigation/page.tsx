@@ -58,7 +58,7 @@ export default function NavigationAdminPage() {
 
   return (
     <div className="space-y-8">
-      {/* Header Section */}
+
       <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl p-8 text-white shadow-xl">
         <div className="flex items-center justify-between">
           <div>
@@ -81,7 +81,6 @@ export default function NavigationAdminPage() {
         </div>
       </div>
 
-      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
           <div className="flex items-center justify-between mb-4">
@@ -124,13 +123,12 @@ export default function NavigationAdminPage() {
         </div>
       </div>
 
-      {/* Categories Grid */}
       <div className="space-y-4">
         <h2 className="text-xl font-semibold text-gray-900">Kategorijas</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {combined.map((cat: any) => (
             <div key={cat.id} className="bg-white rounded-xl shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300 overflow-hidden">
-              {/* Category Header */}
+
               <div className="bg-gradient-to-r from-gray-50 to-gray-100 p-6 border-b border-gray-200">
                 <div className="flex justify-between items-start mb-3">
                   <div className="flex-1">
@@ -171,7 +169,6 @@ export default function NavigationAdminPage() {
                 </div>
               </div>
 
-              {/* Subcategories */}
               <div className="p-6">
                 {cat.subitems?.length > 0 ? (
                   <div className="space-y-3">
@@ -206,7 +203,6 @@ export default function NavigationAdminPage() {
         </div>
       </div>
 
-      {/* Empty State */}
       {combined.length === 0 && (
         <div className="text-center py-12">
           <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">

@@ -7,7 +7,6 @@ export async function updateSession(request: NextRequest) {
     request,
   });
 
-  // If the env vars are not set, skip middleware check
   if (!hasEnvVars) {
     return supabaseResponse;
   }
@@ -39,31 +38,26 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Ja nav lietotāja un mēģina piekļūt admin panelim
   if (request.nextUrl.pathname.startsWith("/admin") && !user) {
     const url = request.nextUrl.clone();
     url.pathname = "/auth/login";
     return NextResponse.redirect(url);
   }
 
-  // Ja ir lietotājs un mēģina piekļūt admin panelim, pārbaudām role (bet tikai middleware līmenī)
   if (request.nextUrl.pathname.startsWith("/admin") && user) {
     try {
-      // Mēģinām iegūt user profile, bet ja neizdodas, ļaujam React komponentes pārvaldīt
+
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('role')
         .eq('id', user.id)
         .single();
 
-      // Ja ir kļūda (tabula neeksistē, nav tiesību, utt.), ļaujam React komponentes to pārvaldīt
       if (error) {
         console.log('Middleware: Could not check user role, delegating to React components');
-        // Nenovirzām nekur, ļaujam React komponentes to pārvaldīt
         return supabaseResponse;
       }
 
-      // Ja nav admin role un nav kļūdas
       if (profile && profile.role !== 'admin') {
         const url = request.nextUrl.clone();
         url.pathname = "/auth/unauthorized";
@@ -71,13 +65,11 @@ export async function updateSession(request: NextRequest) {
       }
 
     } catch (error) {
-      // Ja ir neparedzēta kļūda, ļaujam React komponentes to pārvaldīt
       console.log('Middleware: Unexpected error checking user role:', error);
       return supabaseResponse;
     }
   }
 
-  // Pārējās lapas (ne-admin)
   if (
     request.nextUrl.pathname !== "/" &&
     !user &&

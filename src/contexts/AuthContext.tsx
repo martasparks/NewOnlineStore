@@ -25,7 +25,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const supabase = createClient()
 
   useEffect(() => {
-    // Iegūstam sākotnējo sesiju
     const getInitialSession = async () => {
       try {
         const { data: { session }, error } = await supabase.auth.getSession()
@@ -52,7 +51,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     getInitialSession()
 
-    // Klausāmies autentifikācijas izmaiņas
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         setState(prev => ({ 
@@ -132,7 +130,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { error: error.message }
       }
 
-      // OAuth nenosaka loading uz false, jo notiek pāradresēšana
       return { error: null }
     } catch (error) {
       const errorMessage = 'Neizdevās pieteikties ar Google'
@@ -157,7 +154,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { error: error.message }
       }
 
-      // OAuth nenosaka loading uz false, jo notiek pāradresēšana
       return { error: null }
     } catch (error) {
       const errorMessage = 'Neizdevās pieteikties ar Facebook'

@@ -43,7 +43,6 @@ export default function MainNavigation() {
       const subRes = await fetch('/api/navigation/subcategories')
       const subs = await subRes.json()
 
-      // Piesaisti subcategories pie kategorijām
       const combined = cats.map((cat: any) => ({
         ...cat,
         subitems: subs.filter((s: any) => s.category_id === cat.id)

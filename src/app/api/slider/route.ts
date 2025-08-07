@@ -11,12 +11,9 @@ export async function GET(request: NextRequest) {
     .select('*')
     .order('order_index')
 
-  // Ja nav admin parametrs, rādām tikai aktīvos (publiskajai lapai)
   if (!admin) {
     query = query.eq('is_active', true)
   }
-  // Ja ir admin parametrs, rādām visus slaiderus
-
   const { data, error } = await query
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

@@ -32,13 +32,11 @@ export default function LoginPage() {
   const handleGoogleSignIn = async () => {
     setSocialLoading('google')
     await signInWithGoogle()
-    // Loading paliks aktīvs, jo notiek pāradresēšana
   }
 
   const handleFacebookSignIn = async () => {
     setSocialLoading('facebook')
     await signInWithFacebook()
-    // Loading paliks aktīvs, jo notiek pāradresēšana
   }
 
   return (
@@ -52,7 +50,6 @@ export default function LoginPage() {
           <p className="text-gray-600">Mārtas Mēbeles admin panelis</p>
         </div>
 
-        {/* Sociālie login */}
         <div className="space-y-3 mb-6">
           <Button
             type="button"

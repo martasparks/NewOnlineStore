@@ -24,6 +24,5 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Ja kaut kas nogāja greizi, pāradresējam uz kļūdas lapu
   return NextResponse.redirect(`${origin}/auth/error`)
 }

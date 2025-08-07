@@ -1,9 +1,7 @@
 import { User as SupabaseUser } from '@supabase/supabase-js'
 
-// Izmantojam Supabase User tipu tieši
 export type User = SupabaseUser
 
-// Paplašinām ar mūsu papildu laukiem (ja vajag)
 export interface UserProfile {
   id: string
   email: string

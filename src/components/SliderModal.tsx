@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
-import { Pencil, Plus, Save, Image, FileText, Link2, Hash, Eye, Monitor, Smartphone } from 'lucide-react'
+import { Pencil, Plus, Save, Image, FileText, Link2, Hash, Eye } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useAlert } from '../../lib/store/alert'
 
@@ -169,7 +169,7 @@ export default function SliderModal({
         </DialogHeader>
 
         <div className="space-y-8">
-          {/* Slide Basic Info */}
+
           <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
             <div className="flex items-center mb-4">
               <FileText className="w-5 h-5 text-blue-600 mr-2" />
@@ -231,7 +231,6 @@ export default function SliderModal({
             </div>
           </div>
 
-          {/* Button Settings */}
           <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
             <div className="flex items-center mb-4">
               <Link2 className="w-5 h-5 text-green-600 mr-2" />
@@ -267,7 +266,6 @@ export default function SliderModal({
             </div>
           </div>
 
-          {/* Image Settings */}
           <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
             <div className="flex items-center mb-4">
               <Image className="w-5 h-5 text-purple-600 mr-2" />
@@ -301,7 +299,6 @@ export default function SliderModal({
             </div>
           </div>
 
-          {/* Display Settings */}
           <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
             <div className="flex items-center mb-4">
               <Eye className="w-5 h-5 text-orange-600 mr-2" />
@@ -339,7 +336,6 @@ export default function SliderModal({
           </div>
         </div>
 
-        {/* Footer Actions */}
         <div className="flex gap-4 pt-6 border-t border-gray-200">
           <Button 
             onClick={handleSubmit} 
