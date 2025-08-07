@@ -47,7 +47,7 @@ export default function ProfilePage() {
   const supabase = createClient()
   
   const [profile, setProfile] = useState<UserProfile | null>(null)
-  const { isLoading: loading, withLoading } = useLoading(true);
+  const { isLoading: loading, withLoading } = useLoading(false);
   const [saving, setSaving] = useState(false)
   const [showPasswordForm, setShowPasswordForm] = useState(false)
   const [passwordData, setPasswordData] = useState({

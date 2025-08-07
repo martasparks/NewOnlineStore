@@ -6,7 +6,6 @@ import Link from 'next/link'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { createClient } from '../../../lib/supabase/client'
-import { useLoading } from '@hooks/useLoading';
 import {
   LayoutDashboard,
   Package,
@@ -18,7 +17,6 @@ import {
   Bell,
   AlertTriangle
 } from 'lucide-react'
-import { Loading } from '@/components/ui/Loading'
 
 const navItems = [
   { name: 'Pārskats', href: '/admin', icon: LayoutDashboard },
@@ -35,7 +33,6 @@ export default function AdminLayout({
   children: React.ReactNode
 }) {
   const { user, loading, signOut } = useAuth()
-  const { isLoading, withLoading } = useLoading(true);
   const router = useRouter()
   const [userRole, setUserRole] = useState<string | null>(null)
   const [roleLoading, setRoleLoading] = useState(true)
@@ -104,10 +101,6 @@ export default function AdminLayout({
       checkUserRole()
     }
   }, [user, loading, router, supabase])
-
-  if (loading || roleLoading || isLoading) {
-    return <Loading fullScreen variant="spinner" text="Lūdzu, uzgaidiet. Ielādējam..." />
-  }
 
   if (!user) return null
 
