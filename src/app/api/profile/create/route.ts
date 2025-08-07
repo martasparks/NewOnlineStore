@@ -1,7 +1,14 @@
 import { createClient } from '../../../../../lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { checkRateLimit } from '../../../../../lib/rateLimit'
 
 export async function POST(req: Request) {
+  const ip = req.headers.get('x-forwarded-for') || 'unknown'
+
+  if (!checkRateLimit(ip)) {
+    return NextResponse.json({ error: 'Pārāk daudz pieprasījumu. Lūdzu, mēģini vēlāk.' }, { status: 429 })
+  }
+
   const { personType } = await req.json()
   const supabase = await createClient()
 

@@ -50,14 +50,15 @@ export default function Slider({ slides }: SliderProps) {
             style={{ opacity: index === 0 ? 1 : 0 }}
           >
             <Image
-            src={imageSrc}
-            alt={slide.title}
-            fill
-            className="object-cover"
-            sizes="100vw, 100vh"
-            priority
+              src={imageSrc}
+              alt={slide.title}
+              fill
+              className="object-cover"
+              sizes="100vw"
+              priority={index === 0}
+              placeholder="blur"
+              blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQ..."
             />
-
 
             {slide.show_text !== false && (
             <div className="absolute inset-0 flex flex-col items-center justify-center text-white bg-black/40 px-4 text-center">

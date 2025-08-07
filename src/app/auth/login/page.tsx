@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/contexts/AuthContext'
 import { Eye, EyeOff, LogIn, Mail, Lock } from 'lucide-react'
+import { Loading } from '@/components/ui/Loading'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -156,12 +157,9 @@ export default function LoginPage() {
             className="w-full bg-red-600 hover:bg-red-700 text-white py-3 text-base font-medium"
           >
             {isLoading ? (
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                Pierakstās...
-              </div>
+              <Loading size="sm" variant="spinner" />
             ) : (
-              'Pierakstīties'
+              'Ielādējam profilu..'
             )}
           </Button>
 

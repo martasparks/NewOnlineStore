@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/contexts/AuthContext'
 import { Eye, EyeOff, UserPlus, Mail, Lock } from 'lucide-react'
+import { Loading } from '@/components/ui/Loading'
 
 export default function RegisterPage() {
   const [email, setEmail] = useState('')
@@ -236,12 +237,9 @@ export default function RegisterPage() {
             className="w-full bg-green-600 hover:bg-green-700 text-white py-3 text-base font-medium"
           >
             {isLoading ? (
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                Reģistrējas...
-              </div>
+              <Loading size="sm" variant="spinner" />
             ) : (
-              'Reģistrēties'
+              'Reģistrējam profilu..'
             )}
           </Button>
 

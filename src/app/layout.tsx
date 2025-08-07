@@ -11,8 +11,8 @@ const montserrat = Montserrat({
 })
 
 export const metadata: Metadata = {
-  title: "Mārtas Mēbeles - Admin",
-  description: "Mēbeļu veikala admin panelis",
+  title: "Martas Mēbeles",
+  description: "Mēbeļu veikals",
 };
 
 export default function RootLayout({

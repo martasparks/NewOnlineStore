@@ -3,7 +3,7 @@ import { createClient } from '../../../../../lib/supabase/server'
 
 export async function GET() {
   const supabase = await createClient()
-
+  
   const { data, error } = await supabase
     .from('navigation_categories')
     .select('*')
@@ -13,7 +13,11 @@ export async function GET() {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  return NextResponse.json(data)
+  return NextResponse.json(data, {
+    headers: {
+      'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300'
+    }
+  })
 }
 
 export async function POST(req: Request) {
@@ -40,8 +44,6 @@ export async function PUT(req: Request) {
   const supabase = await createClient()
   const body = await req.json()
 
-  console.log('PUT request body:', body)
-
   if (!body.id) {
     console.error('No ID provided in PUT request')
     return NextResponse.json({ error: 'ID is required for update' }, { status: 400 })
@@ -49,9 +51,6 @@ export async function PUT(req: Request) {
 
   const { id, ...updateData } = body
   
-  console.log('Update data:', updateData)
-  console.log('Updating record with ID:', id)
-
   const { data, error } = await supabase
     .from('navigation_categories')
     .update(updateData)
@@ -63,14 +62,11 @@ export async function PUT(req: Request) {
     return NextResponse.json({ error: error.message }, { status: 400 })
   }
 
-  console.log('Update result:', data)
-
   if (!data || data.length === 0) {
     console.error('No data returned after update - record might not exist')
     return NextResponse.json({ error: 'Kategorija nav atrasta vai neizdevās atjaunināt' }, { status: 404 })
   }
 
-  console.log('Successfully updated category:', data[0])
   return NextResponse.json(data[0])
 }
 

@@ -25,6 +25,7 @@ import {
   AlertCircle,
   CheckCircle
 } from 'lucide-react'
+import { Loading } from '@/components/ui/Loading'
 
 interface UserProfile {
   id: string
@@ -203,20 +204,15 @@ export default function ProfilePage() {
     }
   }
 
-  if (authLoading || loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-        <Header />
-        <MainNavigation />
-        <div className="flex items-center justify-center py-20">
-          <div className="text-center">
-            <div className="w-12 h-12 border-4 border-red-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-gray-600">Ielādē profilu...</p>
-          </div>
+    if (authLoading || loading) {
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+          <Header />
+          <MainNavigation />
+          <Loading variant="spinner" text="Ielādē profilu..." className="py-20" />
         </div>
-      </div>
-    )
-  }
+      )
+    }
 
   if (!user) return null
 

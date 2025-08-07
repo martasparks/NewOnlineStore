@@ -3,10 +3,13 @@
 import React, { useState, useEffect } from "react"
 import { ChevronDown } from "lucide-react"
 import Link from "next/link"
+import { Loading } from "../components/ui/Loading"
+import { useLoading } from "../../hooks/useLoading"
 
 export default function MainNavigation() {
   const [categories, setCategories] = useState<Category[]>([])
   const [hovered, setHovered] = useState<string | null>(null)
+  const { isLoading, withLoading } = useLoading(true)
 
   type Subcategory = {
     id: string
@@ -37,22 +40,32 @@ export default function MainNavigation() {
 
   useEffect(() => {
     const fetchData = async () => {
-      const res = await fetch('/api/navigation/categories')
-      const cats = await res.json()
+      withLoading(async () => {
+        const res = await fetch('/api/navigation/categories')
+        const cats = await res.json()
 
-      const subRes = await fetch('/api/navigation/subcategories')
-      const subs = await subRes.json()
+        const subRes = await fetch('/api/navigation/subcategories')
+        const subs = await subRes.json()
 
-      const combined = cats.map((cat: any) => ({
-        ...cat,
-        subitems: subs.filter((s: any) => s.category_id === cat.id)
-      }))
+        const combined = cats.map((cat: any) => ({
+          ...cat,
+          subitems: subs.filter((s: any) => s.category_id === cat.id)
+        }))
 
-      setCategories(combined)
+        setCategories(combined)
+      })
     }
 
     fetchData()
   }, [])
+
+  if (isLoading) {
+    return (
+      <nav className="bg-white border-t border-gray-200 text-sm relative h-14">
+        <Loading variant="dots" className="h-14" />
+      </nav>
+    )
+  }
 
   return (
     <nav className="bg-white border-t border-gray-200 text-sm relative">
@@ -102,7 +115,7 @@ export default function MainNavigation() {
                 {categories.find(cat => cat.name === hovered)?.subitems?.map((item, index) => (
                   <Link
                     key={`${hovered}-${item.name}`}
-                    href="#"
+                    href={item.url || '#'}
                     className="group flex items-center gap-3 p-4 rounded-lg hover:bg-red-50 transition-all duration-200 transform hover:scale-105"
                     style={{
                       animationDelay: `${index * 50}ms`,

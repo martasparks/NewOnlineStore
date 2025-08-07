@@ -17,6 +17,7 @@ import {
   Bell,
   AlertTriangle
 } from 'lucide-react'
+import { Loading } from '@/components/ui/Loading'
 
 const navItems = [
   { name: 'Pārskats', href: '/admin', icon: LayoutDashboard },
@@ -103,14 +104,7 @@ export default function AdminLayout({
   }, [user, loading, router, supabase])
 
   if (loading || roleLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Ielādējas...</p>
-        </div>
-      </div>
-    )
+  return <Loading fullScreen variant="spinner" text="Ielādējas admin panelis..." />
   }
 
   if (!user) return null
