@@ -3,8 +3,14 @@
 import Link from 'next/link'
 import { Mail, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useLoading } from '@hooks/useLoading';
+import { Loading } from '@/components/ui/Loading';
 
 export default function VerifyEmailPage() {
+  const { isLoading } = useLoading(true);
+  if (isLoading) {
+    return <Loading fullScreen variant="spinner" text="Lūdzu, uzgaidiet. Ielādējam..." />;
+  }
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-8 text-center">

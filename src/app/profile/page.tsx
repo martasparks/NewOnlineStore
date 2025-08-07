@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useLoading } from '@hooks/useLoading';
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
@@ -46,7 +47,7 @@ export default function ProfilePage() {
   const supabase = createClient()
   
   const [profile, setProfile] = useState<UserProfile | null>(null)
-  const [loading, setLoading] = useState(true)
+  const { isLoading: loading, withLoading } = useLoading(true);
   const [saving, setSaving] = useState(false)
   const [showPasswordForm, setShowPasswordForm] = useState(false)
   const [passwordData, setPasswordData] = useState({
@@ -91,7 +92,7 @@ export default function ProfilePage() {
       console.error('Profile fetch failed:', error)
       setAlert('Neizdevās ielādēt profilu', 'error')
     } finally {
-      setLoading(false)
+      // loading tiek pārvaldīts ar useLoading
     }
   }
 

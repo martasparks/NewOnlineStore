@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useLoading } from '@hooks/useLoading';
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -12,22 +13,17 @@ export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
   const [socialLoading, setSocialLoading] = useState<string | null>(null)
+  const { isLoading, withLoading } = useLoading(true);
   const { signIn, signInWithGoogle, signInWithFacebook, error } = useAuth()
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
-
-    const { error } = await signIn(email, password)
-    
+    const { error } = await withLoading(() => signIn(email, password));
     if (!error) {
       router.push('/admin')
     }
-    
-    setIsLoading(false)
   }
 
   const handleGoogleSignIn = async () => {
@@ -157,9 +153,9 @@ export default function LoginPage() {
             className="w-full bg-red-600 hover:bg-red-700 text-white py-3 text-base font-medium"
           >
             {isLoading ? (
-              <Loading size="sm" variant="spinner" />
+              <Loading size="sm" variant="spinner" text="Lūdzu, uzgaidiet. Ielādējam..." />
             ) : (
-              'Ielādējam profilu..'
+              'Pierakstīties'
             )}
           </Button>
 

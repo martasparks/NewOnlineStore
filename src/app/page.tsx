@@ -5,7 +5,7 @@ import Header from "@/components/Header"
 import MainNavigation from "@/components/MainNavigation"
 import Slider from "@/components/Slider"
 import { Loading } from '@/components/ui/Loading'
-import { useLoading } from '../../hooks/useLoading'
+import { useLoading } from '@hooks/useLoading'
 
 export default function Home() {
   const [slides, setSlides] = useState([])
@@ -34,7 +34,7 @@ export default function Home() {
   }, [])
 
   if (isLoading) {
-    return <Loading fullScreen variant="spinner" text="Ielādē sākumlapu..." />
+    return <Loading fullScreen variant="spinner" text="Lūdzu, uzgaidiet. Ielādējam..." />
   }
 
   return (

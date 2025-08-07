@@ -14,6 +14,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
 import { Pencil, Trash, Plus, Save, FolderPlus, Tags, Link2, Hash, FileText } from 'lucide-react'
 import { useState, useEffect } from 'react'
+import { useLoading } from '@hooks/useLoading';
 import { useAlert } from '../../lib/store/alert'
 import { Loading } from "./ui/Loading"
 
@@ -55,7 +56,7 @@ export default function CategoryModal({
   })
   const [subcategories, setSubcategories] = useState<Subcategory[]>([])
   const [editingSub, setEditingSub] = useState<Subcategory | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
+  const { isLoading, withLoading } = useLoading(true);
 
   const { setAlert } = useAlert()
 
@@ -151,65 +152,60 @@ export default function CategoryModal({
   }
 
   const handleSubmit = async () => {
-    setIsLoading(true)
-    console.log('Submitting category:', category)
-    console.log('Is edit mode:', isEdit)
-    console.log('Category ID:', category.id)
-    
-    if (isEdit && !category.id) {
-      setAlert('Kļūda: kategorijas ID nav atrasts', 'error')
-      setIsLoading(false)
-      return
-    }
+    await withLoading(async () => {
+      console.log('Submitting category:', category)
+      console.log('Is edit mode:', isEdit)
+      console.log('Category ID:', category.id)
 
-    try {
-      if (!category.name || !category.slug) {
-        setAlert('Lūdzu aizpildiet visus obligātos laukus', 'error')
-        setIsLoading(false)
-        return
-      }
-      const res = await fetch('/api/navigation/categories', {
-        method: isEdit ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(category),
-      })
-
-      const savedCategory = await res.json()
-      console.log('Server response:', savedCategory)
-
-      if (!res.ok) {
-        console.error('Error response:', savedCategory)
-        setAlert(savedCategory.error || 'Neizdevās saglabāt kategoriju', 'error')
-        setIsLoading(false)
+      if (isEdit && !category.id) {
+        setAlert('Kļūda: kategorijas ID nav atrasts', 'error')
         return
       }
 
-      const catId = savedCategory.id
-      if (!catId) {
-        setAlert('Kategorijas ID nav atrasts', 'error')
-        setIsLoading(false)
-        return
-      }
-      for (const sub of subcategories) {
-        const method = sub.id ? 'PUT' : 'POST'
-        await fetch('/api/navigation/subcategories', {
-          method,
+      try {
+        if (!category.name || !category.slug) {
+          setAlert('Lūdzu aizpildiet visus obligātos laukus', 'error')
+          return
+        }
+        const res = await fetch('/api/navigation/categories', {
+          method: isEdit ? 'PUT' : 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            ...sub,
-            category_id: catId,
-          }),
+          body: JSON.stringify(category),
         })
-      }
 
-      setAlert('Saglabāts veiksmīgi', 'success')
-      onSave()
-      onClose()
-    } catch (error) {
-      setAlert('Neizdevās saglabāt', 'error')
-    } finally {
-      setIsLoading(false)
-    }
+        const savedCategory = await res.json()
+        console.log('Server response:', savedCategory)
+
+        if (!res.ok) {
+          console.error('Error response:', savedCategory)
+          setAlert(savedCategory.error || 'Neizdevās saglabāt kategoriju', 'error')
+          return
+        }
+
+        const catId = savedCategory.id
+        if (!catId) {
+          setAlert('Kategorijas ID nav atrasts', 'error')
+          return
+        }
+        for (const sub of subcategories) {
+          const method = sub.id ? 'PUT' : 'POST'
+          await fetch('/api/navigation/subcategories', {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              ...sub,
+              category_id: catId,
+            }),
+          })
+        }
+
+        setAlert('Saglabāts veiksmīgi', 'success')
+        onSave()
+        onClose()
+      } catch (error) {
+        setAlert('Neizdevās saglabāt', 'error')
+      }
+    })
   }
 
   return (

@@ -5,10 +5,16 @@ import { Button } from '@/components/ui/button'
 import { Pencil, Plus, Trash, FolderOpen, Settings, Eye, ArrowRight } from 'lucide-react'
 import CategoryModal from '../../../components/CategoryModal'
 import { useAlert } from '../../../../lib/store/alert'
+import { useLoading } from '../../../../hooks/useLoading';
+import { Loading } from '@/components/ui/Loading';
 
 const fetcher = (url: string) => fetch(url).then(res => res.json())
 
 export default function NavigationAdminPage() {
+  const { isLoading } = useLoading(true);
+  if (isLoading) {
+    return <Loading fullScreen variant="spinner" text="Lūdzu, uzgaidiet. Ielādējam..." />;
+  }
   const { data: categories, mutate } = useSWR('/api/navigation/categories', fetcher)
   const { data: subcategories } = useSWR('/api/navigation/subcategories', fetcher)
 

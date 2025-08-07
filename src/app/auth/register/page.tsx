@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useLoading } from '@hooks/useLoading';
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -15,7 +16,7 @@ export default function RegisterPage() {
   const [personType, setPersonType] = useState<'private' | 'company'>('private')
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
+  const { isLoading, withLoading } = useLoading(true);
   const [socialLoading, setSocialLoading] = useState<string | null>(null)
   const [passwordError, setPasswordError] = useState('')
   const { signUp, signInWithGoogle, signInWithFacebook, error } = useAuth()
@@ -43,9 +44,7 @@ export default function RegisterPage() {
       return
     }
 
-    setIsLoading(true)
-
-    const { error: signUpError } = await signUp(email, password)
+    const { error: signUpError } = await withLoading(() => signUp(email, password));
 
     if (!signUpError) {
       try {
@@ -65,8 +64,6 @@ export default function RegisterPage() {
 
       router.push('/auth/verify-email')
     }
-
-    setIsLoading(false)
   }
 
   const handleGoogleSignIn = async () => {

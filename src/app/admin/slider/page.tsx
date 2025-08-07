@@ -6,10 +6,17 @@ import { Button } from '@/components/ui/button'
 import { Plus, Pencil, Trash, Image, Settings, Eye, ArrowRight, Monitor, Smartphone } from 'lucide-react'
 import SliderModal from '../../../components/SliderModal'
 import { useAlert } from '../../../../lib/store/alert'
+import { useLoading } from '../../../../hooks/useLoading';
+import { Loading } from '@/components/ui/Loading';
 
 const fetcher = (url: string) => fetch(url).then(res => res.json())
 
 export default function SliderAdminPage() {
+
+  const { isLoading, withLoading } = useLoading(true);
+  if (isLoading) {
+    return <Loading fullScreen variant="spinner" text="Lūdzu, uzgaidiet. Ielādējam..." />;
+  }
 
   const { data: slides, mutate } = useSWR('/api/slider?admin=true', fetcher)
   const [modalOpen, setModalOpen] = useState(false)

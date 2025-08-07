@@ -14,6 +14,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
 import { Pencil, Plus, Save, Image, FileText, Link2, Hash, Eye } from 'lucide-react'
 import { useState, useEffect } from 'react'
+import { useLoading } from '@hooks/useLoading';
 import { useAlert } from '../../lib/store/alert'
 
 interface Slide {
@@ -56,7 +57,7 @@ export default function SliderModal({
     is_active: true,
     show_text: true,
   })
-  const [isLoading, setIsLoading] = useState(false)
+  const { isLoading, withLoading } = useLoading(true);
 
   const { setAlert } = useAlert()
 
@@ -122,31 +123,29 @@ export default function SliderModal({
   }
 
   const handleSubmit = async () => {
-    setIsLoading(true)
-    
-    try {
-      const method = isEdit ? 'PUT' : 'POST'
-      const res = await fetch('/api/slider', {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(slide),
-      })
+    await withLoading(async () => {
+      try {
+        const method = isEdit ? 'PUT' : 'POST'
+        const res = await fetch('/api/slider', {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(slide),
+        })
 
-      const data = await res.json()
+        const data = await res.json()
 
-      if (!res.ok) {
-        setAlert(data.error || 'Neizdevās saglabāt slaidu', 'error')
-        return
+        if (!res.ok) {
+          setAlert(data.error || 'Neizdevās saglabāt slaidu', 'error')
+          return
+        }
+
+        setAlert('Slaids saglabāts veiksmīgi', 'success')
+        onSave()
+        onClose()
+      } catch (error) {
+        setAlert('Neizdevās saglabāt slaidu', 'error')
       }
-
-      setAlert('Slaids saglabāts veiksmīgi', 'success')
-      onSave()
-      onClose()
-    } catch (error) {
-      setAlert('Neizdevās saglabāt slaidu', 'error')
-    } finally {
-      setIsLoading(false)
-    }
+    })
   }
 
   return (

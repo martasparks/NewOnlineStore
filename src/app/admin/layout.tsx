@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { createClient } from '../../../lib/supabase/client'
+import { useLoading } from '@hooks/useLoading';
 import {
   LayoutDashboard,
   Package,
@@ -34,6 +35,7 @@ export default function AdminLayout({
   children: React.ReactNode
 }) {
   const { user, loading, signOut } = useAuth()
+  const { isLoading, withLoading } = useLoading(true);
   const router = useRouter()
   const [userRole, setUserRole] = useState<string | null>(null)
   const [roleLoading, setRoleLoading] = useState(true)
@@ -103,8 +105,8 @@ export default function AdminLayout({
     }
   }, [user, loading, router, supabase])
 
-  if (loading || roleLoading) {
-  return <Loading fullScreen variant="spinner" text="Ielādējas admin panelis..." />
+  if (loading || roleLoading || isLoading) {
+    return <Loading fullScreen variant="spinner" text="Lūdzu, uzgaidiet. Ielādējam..." />
   }
 
   if (!user) return null
