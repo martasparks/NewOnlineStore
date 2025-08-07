@@ -9,7 +9,7 @@ import { useLoading } from "../../hooks/useLoading"
 export default function MainNavigation() {
   const [categories, setCategories] = useState<Category[]>([])
   const [hovered, setHovered] = useState<string | null>(null)
-  const { isLoading, withLoading } = useLoading(true)
+  const { isLoading, withLoading } = useLoading(false)
 
   type Subcategory = {
     id: string

@@ -1,8 +1,6 @@
 'use client'
 
 import { useAuth } from '@/contexts/AuthContext'
-import { useLoading } from '@hooks/useLoading';
-import { Loading } from '@/components/ui/Loading';
 import { 
   TrendingUp, 
   Package, 
@@ -16,10 +14,6 @@ import {
 
 export default function AdminHome() {
   const { user } = useAuth()
-  const { isLoading } = useLoading(true);
-  if (isLoading) {
-    return <Loading fullScreen variant="spinner" text="Lūdzu, uzgaidiet. Ielādējam..." />;
-  }
 
   const stats = [
     {

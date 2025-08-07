@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
-import { useLoading } from '@hooks/useLoading';
-import { Loading } from '@/components/ui/Loading';
 
 interface Slide {
   show_text: boolean
@@ -24,10 +22,6 @@ interface SliderProps {
 }
 
 export default function Slider({ slides }: SliderProps) {
-  const { isLoading } = useLoading(true);
-  if (isLoading) {
-    return <Loading fullScreen variant="spinner" text="Lūdzu, uzgaidiet. Ielādējam..." />;
-  }
 
   const [windowWidth, setWindowWidth] = useState<number | null>(null)
 

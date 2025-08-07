@@ -9,7 +9,7 @@ import { useLoading } from '@hooks/useLoading'
 
 export default function Home() {
   const [slides, setSlides] = useState([])
-  const { isLoading, withLoading } = useLoading(true)
+  const { isLoading, withLoading } = useLoading(false)
 
   const getSlides = async () => {
     const res = await fetch(`${process.env.NODE_ENV === 'production' ? 'https://yourdomain.com' : 'http://localhost:3000'}/api/slider`, {

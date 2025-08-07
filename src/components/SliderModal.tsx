@@ -57,7 +57,7 @@ export default function SliderModal({
     is_active: true,
     show_text: true,
   })
-  const { isLoading, withLoading } = useLoading(true);
+  const { isLoading, withLoading } = useLoading(false);
 
   const { setAlert } = useAlert()
 

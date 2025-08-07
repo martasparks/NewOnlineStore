@@ -22,16 +22,10 @@ import {
   Phone,
   Mail
 } from 'lucide-react'
-import { useLoading } from '@hooks/useLoading';
-import { Loading } from '@/components/ui/Loading';
 
 export default function Header() {
   const { user, signOut } = useAuth()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const { isLoading } = useLoading(true);
-  if (isLoading) {
-    return <Loading fullScreen variant="spinner" text="Lūdzu, uzgaidiet. Ielādējam..." />;
-  }
 
   return (
     <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-40">

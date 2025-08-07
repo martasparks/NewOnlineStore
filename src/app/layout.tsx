@@ -3,8 +3,6 @@ import type { Metadata } from "next"
 import { Montserrat } from "next/font/google"
 import { AuthProvider } from "@/contexts/AuthContext"
 import "./globals.css";
-//import { useLoading } from "../../hooks/useLoading"
-//import { Loading } from "@/components/ui/Loading"
 
 const montserrat = Montserrat({
   subsets: ['latin'],
@@ -22,10 +20,6 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // const { isLoading } = useLoading(true);
-  // if (isLoading) {
-  // return <Loading fullScreen variant="spinner" text="Lūdzu, uzgaidiet. Ielādējam.." />;
-  // }
   return (
     <html lang="lv">
       <body
