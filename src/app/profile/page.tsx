@@ -95,94 +95,115 @@ export default function ProfilePage() {
         }
         setProfile(profileWithMetadata)
       }
-    } catch (err) {
-      console.error('Profile fetch failed:', err)
+    } catch (error) {
+      console.error('Profile fetch failed:', error)
       setAlert('Neizdevās ielādēt profilu', 'error')
     } finally {
       setProfileLoading(false)
     }
   }
 
-  const createProfile = async () => {
-    if (!user) {
-      setAlert('Lietotājs nav atrasts', 'error')
-      return
-    }
-
-    try {
-      const displayName =
-        (user.user_metadata?.full_name as string) ||
-        (user.user_metadata?.name as string) ||
-        (user.user_metadata?.display_name as string) ||
-        ''
-
-      const newProfile = {
-        id: user.id,
-        email: user.email || '',
-        role: 'user' as const,
-        full_name: displayName,
-        phone: (user.user_metadata?.phone as string) || '',
-        company: '',
-        notifications_enabled: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }
-
-      const { data, error } = await supabase
-        .from('profiles')
-        .insert([newProfile])
-        .select()
-        .single()
-
-      if (error) throw error
-
-      setProfile(data)
-      setAlert('Profils izveidots', 'success')
-    } catch (error) {
-      console.error('Error creating profile:', error)
-      setAlert('Neizdevās izveidot profilu', 'error')
-    }
+const createProfile = async () => {
+  if (!user) {
+    setAlert('Lietotājs nav atrasts', 'error')
+    return
   }
 
-  const handleProfileUpdate = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!profile || !user) return
+  try {
+    const displayName =
+      (user.user_metadata?.full_name as string) ||
+      (user.user_metadata?.name as string) ||
+      (user.user_metadata?.display_name as string) ||
+      ''
 
-    setSaving(true)
-    try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({
+    const personType = (user.user_metadata?.personType as string) || 'private'
+
+    const newProfile = {
+      id: user.id,
+      email: user.email || '',
+      role: 'user' as const,
+      person_type: personType,
+      full_name: displayName,
+      phone: (user.user_metadata?.phone as string) || '',
+      company: '',
+      notifications_enabled: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .insert([newProfile])
+      .select()
+      .single()
+
+    if (error) throw error
+
+    setProfile(data)
+    setAlert('Profils izveidots', 'success')
+  } catch (error: unknown) {
+    console.error('Error creating profile:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Nezināma kļūda' // <-- Pareizs error handling
+    setAlert(`Neizdevās izveidot profilu: ${errorMessage}`, 'error')
+  }
+}
+
+    const handleProfileUpdate = async (e: React.FormEvent) => {
+      e.preventDefault()
+      if (!profile || !user) return
+      if (!profile.full_name) {
+        setAlert('Lūdzu, ievadiet savu pilno vārdu', 'error')
+        return
+      }
+      if (profile.full_name.length < 3) {
+        setAlert('Pilnam vārdam jābūt vismaz 3 simbolus garam', 'error')
+        return
+      }
+      setSaving(true)
+      try {
+        const updateData = {
           full_name: profile.full_name || '',
           phone: profile.phone || '',
           company: profile.company || '',
           notifications_enabled: profile.notifications_enabled ?? true,
           updated_at: new Date().toISOString()
-        })
-        .eq('id', user.id)
-
-      if (error) throw error
-
-      if (profile.full_name && profile.full_name !== (user.user_metadata?.full_name as string)) {
-        const { error: authErr } = await supabase.auth.updateUser({
-          data: {
-            full_name: profile.full_name,
-            name: profile.full_name
-          }
-        })
-        if (authErr) {
-          console.warn('Auth metadata update failed:', authErr)
         }
-      }
 
-      setAlert('Profils atjaunināts veiksmīgi', 'success')
-    } catch (error) {
-      console.error('Error updating profile:', error)
-      setAlert('Neizdevās atjaunināt profilu', 'error')
-    } finally {
-      setSaving(false)
+        const { data, error } = await supabase
+          .from('profiles')
+          .update(updateData)
+          .eq('id', user.id)
+          .select()
+
+        if (error) throw error
+
+        if (data && data.length > 0) {
+          setProfile(data[0])
+          setAlert('Profils atjaunināts veiksmīgi', 'success')
+        } else {
+          setAlert('Neizdevās atjaunināt profilu', 'error')
+        }
+
+        if (profile.full_name && profile.full_name !== (user.user_metadata?.full_name as string)) {
+          const { error: authErr } = await supabase.auth.updateUser({
+            data: {
+              full_name: profile.full_name,
+              name: profile.full_name
+            }
+          })
+          if (authErr) {
+            console.warn('Auth metadata update failed:', authErr)
+          }
+        }
+
+          } catch (error: unknown) {
+            console.error('Detailed error:', error)
+            const errorMessage = error instanceof Error ? error.message : 'Nezināma kļūda'
+            setAlert(`Kļūda: ${errorMessage}`, 'error')
+          } finally {
+            setSaving(false)
+          }
     }
-  }
 
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -208,12 +229,13 @@ export default function ProfilePage() {
       setAlert('Parole nomainīta veiksmīgi', 'success')
       setPasswordData({ newPassword: '', confirmPassword: '' })
       setShowPasswordForm(false)
-    } catch (error) {
-      console.error('Error changing password:', error)
-      setAlert('Neizdevās nomainīt paroli', 'error')
-    } finally {
-      setSaving(false)
-    }
+      } catch (error: unknown) {
+        console.error('Error changing password:', error)
+        const errorMessage = error instanceof Error ? error.message : 'Neizdevās nomainīt paroli'
+        setAlert(errorMessage, 'error')
+      } finally {
+        setSaving(false)
+      }
   }
 
   if (authLoading || profileLoading) {

@@ -54,36 +54,20 @@ export default function RegisterPage() {
       return
     }
 
-    // Prasīt hCaptcha tokenu, ja Supabase CAPTCHA ir ieslēgts
     if (!captchaToken) {
       setPasswordError('Lūdzu, apstipriniet hCaptcha izaicinājumu')
       return
     }
 
-    const { error: signUpError } = await withLoading(() => signUp(email, password, captchaToken))
+    const { error: signUpError } = await withLoading(() => signUp(email, password, captchaToken, personType))
 
-    // Pēc mēģinājuma atiestata hCaptcha (ieteikts praksē)
     try {
       captchaRef.current?.resetCaptcha()
       setCaptchaToken(null)
     } catch {
-      // ignorējam lokālu reset kļūdu
     }
 
     if (!signUpError) {
-      // Izveido profila rindu servera pusē (klusā režīmā; kļūda tikai konsolē)
-      try {
-        await fetch('/api/profile/create', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, personType }),
-          credentials: 'include',
-        })
-      } catch (err) {
-        console.error('Neizdevās izveidot profilu:', err)
-      }
-
-      // Pēc sekmīgas reģistrācijas ejam uz e-pasta apstiprināšanas lapu
       router.replace('/auth/verify-email')
     }
   }
@@ -93,8 +77,6 @@ export default function RegisterPage() {
     setSocialLoading('google')
     try {
       await signInWithGoogle()
-      // Ja nav redirect plūsmas AuthContext iekšā, vari pēc veiksmes navigēt:
-      // router.replace('/auth/verify-email')
     } catch (e) {
       console.error('Google sign-in failed:', e)
     } finally {
@@ -287,17 +269,29 @@ export default function RegisterPage() {
             </div>
           )}
 
-          <Button
-            type="submit"
-            disabled={isLoading || socialLoading !== null}
-            className="w-full bg-green-600 hover:bg-green-700 text-white py-3 text-base font-medium"
-          >
-            {isLoading ? (
-              <Loading size="sm" variant="spinner" text="Reģistrējam profilu..." />
-            ) : (
-              'Reģistrēties'
+            <Button
+              type="submit"
+              disabled={isLoading || socialLoading !== null}
+              className="w-full bg-green-600 hover:bg-green-700 text-white py-3 text-base font-medium"
+            >
+              Reģistrēties
+            </Button>
+
+            {isLoading && (
+              <div className="flex justify-center">
+                <Loading size="sm" variant="spinner" text="Reģistrējam profilu..." />
+              </div>
             )}
-          </Button>
+            <div className="text-center text-sm text-gray-500 mt-4">
+              Reģistrējoties, jūs piekrītat mūsu{' '}
+              <Link href="/terms" className="text-green-600 hover:text-green-700 font-medium transition-colors">
+                Lietošanas noteikumiem
+              </Link>{' '}
+              un{' '}
+              <Link href="/privacy" className="text-green-600 hover:text-green-700 font-medium transition-colors">
+                Privātuma politikai
+              </Link>.
+            </div>
 
           <div className="text-center">
             <div className="text-sm text-gray-600">

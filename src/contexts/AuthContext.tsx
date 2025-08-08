@@ -6,7 +6,7 @@ import { AuthState } from '@/types/auth'
 
 interface AuthContextType extends AuthState {
   signIn(email: string, password: string, captchaToken?: string): Promise<{ error: string | null }>
-  signUp: (email: string, password: string, captchaToken?: string) => Promise<{ error: string | null }>
+  signUp: (email: string, password: string, captchaToken?: string, personType?: 'private' | 'company') => Promise<{ error: string | null }>
   signOut: () => Promise<void>
   resetPassword: (email: string) => Promise<{ error: string | null }>
   signInWithGoogle: () => Promise<{ error: string | null }>
@@ -98,8 +98,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  // Atbalsta hCaptcha tokenu, ja Supabase Auth CAPTCHA ir ieslēgts
-  const signUp = async (email: string, password: string, captchaToken?: string) => {
+  const signUp = async (email: string, password: string, captchaToken?: string, personType?: 'private' | 'company') => {
     try {
       setState(prev => ({ ...prev, loading: true, error: null }))
 
@@ -108,8 +107,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         password,
         options: {
           emailRedirectTo: `${window.location.origin}/auth/callback`,
-          // Ja CAPTCHA ir ieslēgts, Supabase prasīs captchaToken
-          captchaToken
+          captchaToken,
+          data: {
+            personType: personType || 'private'
+          }
         }
       })
 

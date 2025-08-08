@@ -19,15 +19,15 @@ export interface AuthState {
 export interface LoginCredentials {
   email: string
   password: string
-  captchaToken?: string // pievienots hCaptcha token
+  captchaToken?: string
 }
 
 export interface RegisterCredentials {
   email: string
   password: string
   confirmPassword: string
-  captchaToken?: string // pievienots hCaptcha token
-  personType?: 'private' | 'company' // var arī pievienot šo, ja vajag
+  captchaToken?: string
+  personType?: 'private' | 'company'
 }
 
 export interface AuthResponse {

@@ -2,18 +2,12 @@ import { NextResponse } from 'next/server'
 import { createClient } from '../../../../../lib/supabase/server'
 import { checkRateLimit } from '../../../../../lib/rateLimit'
 
-/**
- * API route profila izveidei/atjaunināšanai pēc reģistrācijas.
- * Nepieciešams autentificēts lietotājs (Supabase sesijas cookies).
- * Biežākais 401 iemesls: fetch bez credentials: 'include' vai nepareizi setots servera Supabase klients.
- */
 export async function POST(req: Request) {
   const ip =
     req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
     req.headers.get('x-real-ip') ||
     'unknown'
 
-  // 1) Rate limit aizsardzība
   if (!checkRateLimit(ip)) {
     return NextResponse.json(
       { error: 'Pārāk daudz pieprasījumu. Lūdzu, mēģini vēlāk.' },
@@ -21,7 +15,6 @@ export async function POST(req: Request) {
     )
   }
 
-  // 2) Parse body
   let personType: 'private' | 'company' | undefined
   try {
     const body = await req.json()
