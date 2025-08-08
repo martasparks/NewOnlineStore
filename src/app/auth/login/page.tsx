@@ -1,39 +1,84 @@
 'use client'
 
-import { useState } from 'react'
-import { useLoading } from '@hooks/useLoading';
+import { useRef, useState } from 'react'
+import { useLoading } from '@hooks/useLoading'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/contexts/AuthContext'
 import { Eye, EyeOff, LogIn, Mail, Lock } from 'lucide-react'
 import { Loading } from '@/components/ui/Loading'
+import HCaptcha from '@hcaptcha/react-hcaptcha'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [socialLoading, setSocialLoading] = useState<string | null>(null)
-  const { isLoading, withLoading } = useLoading(true);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  const [loginError, setLoginError] = useState('')
+  const captchaRef = useRef<HCaptcha | null>(null)
+
+  // Svarīgi: sākam ar false, lai pēc logout nebūtu "mūžīgā ielāde"
+  const { isLoading, withLoading } = useLoading(false)
+
   const { signIn, signInWithGoogle, signInWithFacebook, error } = useAuth()
   const router = useRouter()
 
+  const HCAPTCHA_SITE_KEY = process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY || ''
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const { error } = await withLoading(() => signIn(email, password));
-    if (!error) {
-      router.push('/admin')
+    setLoginError('')
+
+    // Prasīt hCaptcha tokenu
+    if (!captchaToken) {
+      setLoginError('Lūdzu, apstipriniet hCaptcha izaicinājumu')
+      return
+    }
+
+    const { error: signInError } = await withLoading(() => signIn(email, password, captchaToken))
+
+    // Pēc mēģinājuma atiestata hCaptcha
+    try {
+      captchaRef.current?.resetCaptcha()
+      setCaptchaToken(null)
+    } catch {
+      // ignorējam lokālu reset kļūdu
+    }
+
+    if (!signInError) {
+      // Drošāka navigācija bez atgriešanās uz login ar back pogu
+      router.replace('/admin')
     }
   }
 
   const handleGoogleSignIn = async () => {
+    if (isLoading || socialLoading) return
     setSocialLoading('google')
-    await signInWithGoogle()
+    try {
+      await signInWithGoogle()
+      // Ja AuthContext nav redirect plūsmas, vari pēc veiksmes navigēt:
+      // router.replace('/admin')
+    } catch (e) {
+      console.error('Google sign-in failed:', e)
+    } finally {
+      // Ja notiek redirect plūsma, šis var arī neizpildīties; lokālai plūsmai – atiestatām
+      setSocialLoading(null)
+    }
   }
 
   const handleFacebookSignIn = async () => {
+    if (isLoading || socialLoading) return
     setSocialLoading('facebook')
-    await signInWithFacebook()
+    try {
+      await signInWithFacebook()
+      // router.replace('/admin') // ja nav redirect plūsmas
+    } catch (e) {
+      console.error('Facebook sign-in failed:', e)
+    } finally {
+      setSocialLoading(null)
+    }
   }
 
   return (
@@ -58,7 +103,7 @@ export default function LoginPage() {
             {socialLoading === 'google' ? (
               <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin mr-2" />
             ) : (
-              <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24" aria-hidden="true">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                 <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
                 <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
@@ -78,8 +123,8 @@ export default function LoginPage() {
             {socialLoading === 'facebook' ? (
               <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin mr-2" />
             ) : (
-              <svg className="w-4 h-4 mr-2" fill="#1877F2" viewBox="0 0 24 24">
-                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+              <svg className="w-4 h-4 mr-2" fill="#1877F2" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M24 12.073c0-6.627-5.373-12-12-12S0 5.446 0 12.073C0 18.062 4.388 23.027 10.125 23.927v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
               </svg>
             )}
             Turpināt ar Facebook
@@ -134,16 +179,35 @@ export default function LoginPage() {
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  aria-label={showPassword ? 'Slēpt paroli' : 'Rādīt paroli'}
                 >
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
             </div>
+
+            {/* hCaptcha widgets */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Drošības apstiprinājums
+              </label>
+              <HCaptcha
+                ref={captchaRef as any}
+                sitekey={HCAPTCHA_SITE_KEY}
+                onVerify={(token) => setCaptchaToken(token)}
+                onExpire={() => setCaptchaToken(null)}
+                onError={() => setCaptchaToken(null)}
+                theme="light"
+              />
+              <p className="text-xs text-gray-500 mt-2">
+                Lūdzu, izpildiet hCaptcha, lai turpinātu pierakstīšanos.
+              </p>
+            </div>
           </div>
 
-          {error && (
+          {(error || loginError) && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-              {error}
+              {error || loginError}
             </div>
           )}
 
@@ -160,17 +224,17 @@ export default function LoginPage() {
           </Button>
 
           <div className="text-center space-y-4">
-            <Link 
-              href="/auth/forgot-password" 
+            <Link
+              href="/auth/forgot-password"
               className="text-sm text-red-600 hover:text-red-700 transition-colors"
             >
               Aizmirsi paroli?
             </Link>
-            
+
             <div className="text-sm text-gray-600">
               Nav konta?{' '}
-              <Link 
-                href="/auth/register" 
+              <Link
+                href="/auth/register"
                 className="text-red-600 hover:text-red-700 font-medium transition-colors"
               >
                 Reģistrēties

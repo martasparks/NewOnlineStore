@@ -5,8 +5,8 @@ import { createClient } from '../../lib/supabase/client'
 import { AuthState } from '@/types/auth'
 
 interface AuthContextType extends AuthState {
-  signIn: (email: string, password: string) => Promise<{ error: string | null }>
-  signUp: (email: string, password: string) => Promise<{ error: string | null }>
+  signIn(email: string, password: string, captchaToken?: string): Promise<{ error: string | null }>
+  signUp: (email: string, password: string, captchaToken?: string) => Promise<{ error: string | null }>
   signOut: () => Promise<void>
   resetPassword: (email: string) => Promise<{ error: string | null }>
   signInWithGoogle: () => Promise<{ error: string | null }>
@@ -27,51 +27,61 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const getInitialSession = async () => {
       try {
-        const { data: { session }, error } = await supabase.auth.getSession()
-        
+        const {
+          data: { session },
+          error
+        } = await supabase.auth.getSession()
+
         if (error) {
           setState(prev => ({ ...prev, error: error.message, loading: false }))
           return
         }
 
-        setState(prev => ({ 
-          ...prev, 
-          user: session?.user ?? null, 
+        setState(prev => ({
+          ...prev,
+          user: session?.user ?? null,
           loading: false,
           error: null
         }))
-      } catch (error) {
-        setState(prev => ({ 
-          ...prev, 
-          error: 'Neizdevās ielādēt sesiju', 
-          loading: false 
+      } catch {
+        setState(prev => ({
+          ...prev,
+          error: 'Neizdevās ielādēt sesiju',
+          loading: false
         }))
       }
     }
 
     getInitialSession()
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setState(prev => ({ 
-          ...prev, 
-          user: session?.user ?? null,
-          loading: false,
-          error: null
-        }))
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setState(prev => ({
+        ...prev,
+        user: session?.user ?? null,
+        loading: false,
+        error: null
+      }))
+    })
+
+    return () => {
+      try {
+        subscription.unsubscribe()
+      } catch {
+        // ignore
       }
-    )
+    }
+  }, [supabase])
 
-    return () => subscription.unsubscribe()
-  }, [supabase.auth])
-
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (email: string, password: string, captchaToken?: string) => {
     try {
       setState(prev => ({ ...prev, loading: true, error: null }))
-      
+
       const { error } = await supabase.auth.signInWithPassword({
         email,
-        password
+        password,
+        options: {
+        captchaToken
+      }
       })
 
       if (error) {
@@ -81,22 +91,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setState(prev => ({ ...prev, loading: false, error: null }))
       return { error: null }
-    } catch (error) {
+    } catch {
       const errorMessage = 'Neizdevās pieteikties'
       setState(prev => ({ ...prev, error: errorMessage, loading: false }))
       return { error: errorMessage }
     }
   }
 
-  const signUp = async (email: string, password: string) => {
+  // Atbalsta hCaptcha tokenu, ja Supabase Auth CAPTCHA ir ieslēgts
+  const signUp = async (email: string, password: string, captchaToken?: string) => {
     try {
       setState(prev => ({ ...prev, loading: true, error: null }))
-      
+
       const { error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          // Ja CAPTCHA ir ieslēgts, Supabase prasīs captchaToken
+          captchaToken
         }
       })
 
@@ -107,7 +120,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setState(prev => ({ ...prev, loading: false, error: null }))
       return { error: null }
-    } catch (error) {
+    } catch {
       const errorMessage = 'Neizdevās reģistrēties'
       setState(prev => ({ ...prev, error: errorMessage, loading: false }))
       return { error: errorMessage }
@@ -116,8 +129,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInWithGoogle = async () => {
     try {
-      setState(prev => ({ ...prev, loading: true, error: null }))
-      
+      // Neuzturam loading=true ilgi, jo SDK var veikt tūlītēju redirect
+      setState(prev => ({ ...prev, error: null }))
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -126,22 +140,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       })
 
       if (error) {
-        setState(prev => ({ ...prev, error: error.message, loading: false }))
+        setState(prev => ({ ...prev, error: error.message }))
         return { error: error.message }
       }
 
       return { error: null }
-    } catch (error) {
+    } catch {
       const errorMessage = 'Neizdevās pieteikties ar Google'
-      setState(prev => ({ ...prev, error: errorMessage, loading: false }))
+      setState(prev => ({ ...prev, error: errorMessage }))
       return { error: errorMessage }
     }
   }
 
   const signInWithFacebook = async () => {
     try {
-      setState(prev => ({ ...prev, loading: true, error: null }))
-      
+      setState(prev => ({ ...prev, error: null }))
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'facebook',
         options: {
@@ -150,14 +164,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       })
 
       if (error) {
-        setState(prev => ({ ...prev, error: error.message, loading: false }))
+        setState(prev => ({ ...prev, error: error.message }))
         return { error: error.message }
       }
 
       return { error: null }
-    } catch (error) {
+    } catch {
       const errorMessage = 'Neizdevās pieteikties ar Facebook'
-      setState(prev => ({ ...prev, error: errorMessage, loading: false }))
+      setState(prev => ({ ...prev, error: errorMessage }))
       return { error: errorMessage }
     }
   }
@@ -167,7 +181,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setState(prev => ({ ...prev, loading: true }))
       await supabase.auth.signOut()
       setState(prev => ({ ...prev, user: null, loading: false, error: null }))
-    } catch (error) {
+    } catch {
       setState(prev => ({ ...prev, error: 'Neizdevās iziet', loading: false }))
     }
   }
@@ -183,21 +197,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       return { error: null }
-    } catch (error) {
+    } catch {
       return { error: 'Neizdevās nosūtīt paroles atjaunošanas e-pastu' }
     }
   }
 
   return (
-    <AuthContext.Provider value={{
-      ...state,
-      signIn,
-      signUp,
-      signOut,
-      resetPassword,
-      signInWithGoogle,
-      signInWithFacebook
-    }}>
+    <AuthContext.Provider
+      value={{
+        ...state,
+        signIn,
+        signUp,
+        signOut,
+        resetPassword,
+        signInWithGoogle,
+        signInWithFacebook
+      }}
+    >
       {children}
     </AuthContext.Provider>
   )

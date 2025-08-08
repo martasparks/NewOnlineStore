@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useLoading } from '@hooks/useLoading';
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
@@ -45,9 +44,9 @@ export default function ProfilePage() {
   const { setAlert } = useAlert()
   const router = useRouter()
   const supabase = createClient()
-  
+
   const [profile, setProfile] = useState<UserProfile | null>(null)
-  const { isLoading: loading, withLoading } = useLoading(false);
+  const [profileLoading, setProfileLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [showPasswordForm, setShowPasswordForm] = useState(false)
   const [passwordData, setPasswordData] = useState({
@@ -56,43 +55,51 @@ export default function ProfilePage() {
   })
 
   useEffect(() => {
-    if (!authLoading && !user) {
+    if (authLoading) return
+
+    if (!user) {
       router.push('/auth/login')
+      setProfileLoading(false)
       return
     }
 
-    if (user) {
-      fetchProfile()
-    }
-  }, [user, authLoading, router])
+    fetchProfile()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, authLoading])
 
   const fetchProfile = async () => {
+    if (!user) return
+    setProfileLoading(true)
     try {
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', user?.id)
+        .eq('id', user.id)
         .single()
 
       if (error) {
-        console.error('Error fetching profile:', error)
-        if (error.code === 'PGRST116') {
+        if ((error as any).code === 'PGRST116') {
           await createProfile()
         } else {
+          console.error('Error fetching profile:', error)
           setAlert('Neizdevās ielādēt profilu', 'error')
         }
       } else {
         const profileWithMetadata = {
           ...data,
-          full_name: data.full_name || user?.user_metadata?.full_name || user?.user_metadata?.name || ''
+          full_name:
+            data.full_name ||
+            (user.user_metadata?.full_name as string) ||
+            (user.user_metadata?.name as string) ||
+            ''
         }
         setProfile(profileWithMetadata)
       }
-    } catch (error) {
-      console.error('Profile fetch failed:', error)
+    } catch (err) {
+      console.error('Profile fetch failed:', err)
       setAlert('Neizdevās ielādēt profilu', 'error')
     } finally {
-      // loading tiek pārvaldīts ar useLoading
+      setProfileLoading(false)
     }
   }
 
@@ -103,17 +110,18 @@ export default function ProfilePage() {
     }
 
     try {
-      const displayName = user.user_metadata?.full_name || 
-                         user.user_metadata?.name || 
-                         user.user_metadata?.display_name || 
-                         ''
+      const displayName =
+        (user.user_metadata?.full_name as string) ||
+        (user.user_metadata?.name as string) ||
+        (user.user_metadata?.display_name as string) ||
+        ''
 
       const newProfile = {
         id: user.id,
         email: user.email || '',
         role: 'user' as const,
         full_name: displayName,
-        phone: user.user_metadata?.phone || '',
+        phone: (user.user_metadata?.phone as string) || '',
         company: '',
         notifications_enabled: true,
         created_at: new Date().toISOString(),
@@ -154,16 +162,19 @@ export default function ProfilePage() {
         .eq('id', user.id)
 
       if (error) throw error
-      
-      if (profile.full_name !== user.user_metadata?.full_name) {
-        await supabase.auth.updateUser({
-          data: { 
+
+      if (profile.full_name && profile.full_name !== (user.user_metadata?.full_name as string)) {
+        const { error: authErr } = await supabase.auth.updateUser({
+          data: {
             full_name: profile.full_name,
-            name: profile.full_name 
+            name: profile.full_name
           }
         })
+        if (authErr) {
+          console.warn('Auth metadata update failed:', authErr)
+        }
       }
-      
+
       setAlert('Profils atjaunināts veiksmīgi', 'success')
     } catch (error) {
       console.error('Error updating profile:', error)
@@ -175,7 +186,7 @@ export default function ProfilePage() {
 
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (passwordData.newPassword !== passwordData.confirmPassword) {
       setAlert('Jaunās paroles nesakrīt', 'error')
       return
@@ -193,7 +204,7 @@ export default function ProfilePage() {
       })
 
       if (error) throw error
-      
+
       setAlert('Parole nomainīta veiksmīgi', 'success')
       setPasswordData({ newPassword: '', confirmPassword: '' })
       setShowPasswordForm(false)
@@ -205,15 +216,15 @@ export default function ProfilePage() {
     }
   }
 
-    if (authLoading || loading) {
-      return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-          <Header />
-          <MainNavigation />
-          <Loading variant="spinner" text="Ielādē profilu..." className="py-20" />
-        </div>
-      )
-    }
+  if (authLoading || profileLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+        <Header />
+        <MainNavigation />
+        <Loading variant="spinner" text="Ielādē profilu..." className="py-20" />
+      </div>
+    )
+  }
 
   if (!user) return null
 
@@ -240,7 +251,7 @@ export default function ProfilePage() {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       <Header />
       <MainNavigation />
-      
+
       <div className="max-w-6xl mx-auto px-4 py-8">
         <div className="bg-gradient-to-r from-red-500 to-pink-600 rounded-2xl p-8 text-white shadow-xl mb-8">
           <div className="flex items-center space-x-6">
@@ -260,7 +271,6 @@ export default function ProfilePage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-
           <div className="lg:col-span-2 space-y-6">
             <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
               <div className="flex items-center mb-6">
@@ -279,7 +289,9 @@ export default function ProfilePage() {
                       <Input
                         id="full_name"
                         value={profile.full_name || ''}
-                        onChange={(e) => setProfile(prev => prev ? {...prev, full_name: e.target.value} : null)}
+                        onChange={(e) =>
+                          setProfile(prev => (prev ? { ...prev, full_name: e.target.value } : prev))
+                        }
                         placeholder="Jūsu pilns vārds"
                         className="pl-10"
                       />
@@ -295,7 +307,9 @@ export default function ProfilePage() {
                       <Input
                         id="phone"
                         value={profile.phone || ''}
-                        onChange={(e) => setProfile(prev => prev ? {...prev, phone: e.target.value} : null)}
+                        onChange={(e) =>
+                          setProfile(prev => (prev ? { ...prev, phone: e.target.value } : prev))
+                        }
                         placeholder="+371 20000000"
                         className="pl-10"
                       />
@@ -328,7 +342,9 @@ export default function ProfilePage() {
                     <Input
                       id="company"
                       value={profile.company || ''}
-                      onChange={(e) => setProfile(prev => prev ? {...prev, company: e.target.value} : null)}
+                      onChange={(e) =>
+                        setProfile(prev => (prev ? { ...prev, company: e.target.value } : prev))
+                      }
                       placeholder="Jūsu uzņēmuma nosaukums"
                       className="pl-10"
                     />
@@ -393,7 +409,9 @@ export default function ProfilePage() {
                       id="new_password"
                       type="password"
                       value={passwordData.newPassword}
-                      onChange={(e) => setPasswordData(prev => ({...prev, newPassword: e.target.value}))}
+                      onChange={(e) =>
+                        setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))
+                      }
                       placeholder="Ievadiet jauno paroli"
                       className="w-full"
                       required
@@ -408,7 +426,9 @@ export default function ProfilePage() {
                       id="confirm_password"
                       type="password"
                       value={passwordData.confirmPassword}
-                      onChange={(e) => setPasswordData(prev => ({...prev, confirmPassword: e.target.value}))}
+                      onChange={(e) =>
+                        setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))
+                      }
                       placeholder="Ievadiet paroli vēlreiz"
                       className="w-full"
                       required
@@ -451,7 +471,6 @@ export default function ProfilePage() {
           </div>
 
           <div className="space-y-6">
-
             <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
               <div className="flex items-center mb-4">
                 <CheckCircle className="w-5 h-5 text-green-600 mr-2" />
@@ -481,14 +500,22 @@ export default function ProfilePage() {
                 </div>
                 <Switch
                   checked={profile.notifications_enabled ?? true}
-                  onCheckedChange={(checked) => {
-                    setProfile(prev => prev ? {...prev, notifications_enabled: checked} : null)
-                    if (profile && user) {
-                      supabase
+                  onCheckedChange={async (checked) => {
+                    setProfile(prev => (prev ? { ...prev, notifications_enabled: checked } : prev))
+                    if (!user) return
+                    try {
+                      const { error } = await supabase
                         .from('profiles')
-                        .update({ notifications_enabled: checked })
+                        .update({
+                          notifications_enabled: checked,
+                          updated_at: new Date().toISOString()
+                        })
                         .eq('id', user.id)
-                        .then(() => setAlert('Paziņojumu iestatījumi saglabāti', 'success'))
+                      if (error) throw error
+                      setAlert('Paziņojumu iestatījumi saglabāti', 'success')
+                    } catch (e) {
+                      setProfile(prev => (prev ? { ...prev, notifications_enabled: !checked } : prev))
+                      setAlert('Neizdevās saglabāt paziņojumu iestatījumus', 'error')
                     }
                   }}
                 />
