@@ -1,211 +1,240 @@
-"use client";
+"use client"
 
-import React, { useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { useAuth } from "@/contexts/AuthContext";
-import { Eye, EyeOff, LogIn, Mail, Lock } from "lucide-react";
-import { Loading } from "@/components/ui/Loading";
-import HCaptcha from "@hcaptcha/react-hcaptcha";
+import React, { useRef, useState } from "react"
+import { useRouter } from "next/navigation"
+import Link from "next/link"
+import { Button } from "@/components/ui/button"
+import { useAuth } from "@/contexts/AuthContext"
+import { Eye, EyeOff, Mail, Lock } from "lucide-react"
+import { Loading } from "@/components/ui/Loading"
+import HCaptcha from "@hcaptcha/react-hcaptcha"
 
-const SITE_KEY = process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY || "";
+const SITE_KEY = process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY || ""
 
 export default function LoginForm() {
-  const router = useRouter();
-  const { signIn, signInWithGoogle, signInWithFacebook, error } = useAuth();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [socialLoading, setSocialLoading] = useState(false);
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
-  const [loginError, setLoginError] = useState<string | null>(null);
-  const captchaRef = useRef<HCaptcha>(null);
+  const router = useRouter()
+  const { signIn, signInWithGoogle, signInWithFacebook, error } = useAuth()
+  
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [socialLoading, setSocialLoading] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  const [loginError, setLoginError] = useState<string | null>(null)
+  const captchaRef = useRef<HCaptcha>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoginError(null);
+    e.preventDefault()
+    setLoginError(null)
+    
     if (!captchaToken) {
-      setLoginError("Lūdzu, apstipriniet, ka neesat robots.");
-      return;
+      setLoginError("Lūdzu, apstipriniet, ka neesat robots.")
+      return
     }
-    setLoading(true);
+    
+    setLoading(true)
     try {
-      await signIn(email, password, captchaToken);
-      router.replace("/admin");
-    } catch (err: any) {
-      setLoginError(err?.message || "Neizdevās pieteikties. Mēģiniet vēlreiz.");
-      if (captchaRef.current) {
-        captchaRef.current.resetCaptcha();
+      const result = await signIn(email, password, captchaToken)
+      if (!result.error) {
+        router.replace("/admin")
+      } else {
+        setLoginError(result.error)
+        if (captchaRef.current) {
+          captchaRef.current.resetCaptcha()
+        }
+        setCaptchaToken(null)
       }
-      setCaptchaToken(null);
+    } catch (err: any) {
+      setLoginError(err?.message || "Neizdevās pieteikties. Mēģiniet vēlreiz.")
+      if (captchaRef.current) {
+        captchaRef.current.resetCaptcha()
+      }
+      setCaptchaToken(null)
     }
-    setLoading(false);
-  };
+    setLoading(false)
+  }
 
   const handleGoogleLogin = async () => {
-    setSocialLoading(true);
-    setLoginError(null);
+    setSocialLoading(true)
+    setLoginError(null)
     try {
-      await signInWithGoogle();
-      router.replace("/admin");
+      const result = await signInWithGoogle()
+      if (!result.error) {
+        router.replace("/admin")
+      } else {
+        setLoginError(result.error)
+      }
     } catch (err: any) {
-      setLoginError(err?.message || "Neizdevās pieteikties ar Google.");
+      setLoginError(err?.message || "Neizdevās pieteikties ar Google.")
     }
-    setSocialLoading(false);
-  };
+    setSocialLoading(false)
+  }
 
   const handleFacebookLogin = async () => {
-    setSocialLoading(true);
-    setLoginError(null);
+    setSocialLoading(true)
+    setLoginError(null)
     try {
-      await signInWithFacebook();
-      router.replace("/admin");
+      const result = await signInWithFacebook()
+      if (!result.error) {
+        router.replace("/admin")
+      } else {
+        setLoginError(result.error)
+      }
     } catch (err: any) {
-      setLoginError(err?.message || "Neizdevās pieteikties ar Facebook.");
+      setLoginError(err?.message || "Neizdevās pieteikties ar Facebook.")
     }
-    setSocialLoading(false);
-  };
-
-  const handleCaptchaVerify = (token: string) => {
-    setCaptchaToken(token);
-    setLoginError(null);
-  };
-
-  const handleCaptchaExpire = () => {
-    setCaptchaToken(null);
-  };
+    setSocialLoading(false)
+  }
 
   return (
-    <form className="space-y-6 w-full max-w-md mx-auto" onSubmit={handleSubmit}>
-      <div className="flex flex-col gap-4">
+    <>
+      {/* Social Login Buttons */}
+      <div className="space-y-3 mb-6">
         <Button
           type="button"
           variant="outline"
-          className="flex items-center gap-2"
-          disabled={socialLoading}
           onClick={handleGoogleLogin}
+          disabled={loading || socialLoading}
+          className="w-full"
         >
-          <svg className="h-5 w-5" viewBox="0 0 48 48">
-            <g>
-              <path
-                fill="#4285F4"
-                d="M44.5 20H24v8.5h11.8C34.7 33.2 30.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.1 8.1 2.9l6.1-6.1C34.5 6.5 29.6 4.5 24 4.5 12.7 4.5 3.5 13.7 3.5 25S12.7 45.5 24 45.5c10.5 0 19.5-8.5 19.5-19.5 0-1.3-.1-2.5-.3-3.5z"
-              />
-              <path
-                fill="#34A853"
-                d="M6.3 14.1l7 5.1C15.9 16.5 19.7 14 24 14c3.1 0 5.9 1.1 8.1 2.9l6.1-6.1C34.5 6.5 29.6 4.5 24 4.5c-7.1 0-13.1 4.1-16.1 10.1z"
-              />
-              <path
-                fill="#FBBC05"
-                d="M24 45.5c5.5 0 10.4-2 14.2-5.5l-6.6-5.4c-2 1.5-4.5 2.4-7.6 2.4-6.2 0-11.4-4.2-13.3-9.8l-7 5.4C7 41.2 14.9 45.5 24 45.5z"
-              />
-              <path
-                fill="#EA4335"
-                d="M44.5 20H24v8.5h11.8c-1.2 3.2-4.2 5.5-7.8 5.5-4.7 0-8.6-3.8-8.6-8.5s3.9-8.5 8.6-8.5c2.1 0 4 .7 5.5 2.1l6.2-6.1C34.5 6.5 29.6 4.5 24 4.5c-7.1 0-13.1 4.1-16.1 10.1z"
-              />
-            </g>
-          </svg>
+          {socialLoading ? (
+            <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin mr-2" />
+          ) : (
+            <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24" aria-hidden="true">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+            </svg>
+          )}
           Turpināt ar Google
         </Button>
+        
         <Button
           type="button"
           variant="outline"
-          className="flex items-center gap-2"
-          disabled={socialLoading}
           onClick={handleFacebookLogin}
+          disabled={loading || socialLoading}
+          className="w-full"
         >
-          <svg className="h-5 w-5" viewBox="0 0 32 32">
-            <path
-              d="M29 0H3C1.3 0 0 1.3 0 3v26c0 1.7 1.3 3 3 3h13V20h-4v-5h4v-3.7C16 7.8 18.4 6 21.7 6c1.2 0 2.3.1 2.6.1v4h-1.8c-1.4 0-1.7.7-1.7 1.7V15h4.5l-.6 5H21v12h8c1.7 0 3-1.3 3-3V3c0-1.7-1.3-3-3-3z"
-              fill="#1877F3"
-            />
-            <path
-              d="M21 32V20h3.6l.6-5H21v-3.3c0-1 .3-1.7 1.7-1.7h1.8v-4c-.3 0-1.4-.1-2.6-.1-3.3 0-5.7 1.8-5.7 5.1V15h-4v5h4v12h4z"
-              fill="#fff"
-            />
-          </svg>
+          {socialLoading ? (
+            <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin mr-2" />
+          ) : (
+            <svg className="w-4 h-4 mr-2" fill="#1877F2" viewBox="0 0 24 24">
+              <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+            </svg>
+          )}
           Turpināt ar Facebook
         </Button>
       </div>
-      <div className="relative">
-        <span className="absolute inset-x-0 top-1/2 border-t border-gray-300" />
-        <span className="relative flex justify-center text-xs uppercase bg-white px-2 text-gray-500 -mt-3">
-          vai
-        </span>
-      </div>
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">E-pasts</label>
-        <div className="relative">
-          <Mail className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
-          <input
-            type="email"
-            className="pl-10 pr-3 py-2 border border-gray-300 rounded w-full focus:outline-none focus:border-primary"
-            placeholder="E-pasta adrese"
-            autoComplete="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            disabled={loading}
-          />
+
+      {/* Divider */}
+      <div className="relative mb-6">
+        <div className="absolute inset-0 flex items-center">
+          <span className="w-full border-t border-gray-300" />
+        </div>
+        <div className="relative flex justify-center text-xs uppercase">
+          <span className="bg-white px-2 text-gray-500">vai</span>
         </div>
       </div>
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">Parole</label>
-        <div className="relative">
-          <Lock className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
-          <input
-            type={showPassword ? "text" : "password"}
-            className="pl-10 pr-10 py-2 border border-gray-300 rounded w-full focus:outline-none focus:border-primary"
-            placeholder="Parole"
-            autoComplete="current-password"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            disabled={loading}
-          />
-          <button
-            type="button"
-            tabIndex={-1}
-            className="absolute right-3 top-2.5"
-            onClick={() => setShowPassword((s) => !s)}
-            aria-label={showPassword ? "Slēpt paroli" : "Rādīt paroli"}
-          >
-            {showPassword ? <EyeOff className="h-5 w-5 text-gray-400" /> : <Eye className="h-5 w-5 text-gray-400" />}
-          </button>
+
+      {/* Email/Password Form */}
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-2">
+          <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+            E-pasta adrese
+          </label>
+          <div className="relative">
+            <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              placeholder="jusu@epasts.lv"
+              required
+              disabled={loading}
+            />
+          </div>
         </div>
-      </div>
-      <div className="flex justify-end">
-        <Link href="/auth/forgot-password" className="text-sm text-primary hover:underline">
-          Aizmirsi paroli?
-        </Link>
-      </div>
-      <div className="flex justify-center">
-        <HCaptcha
-          sitekey={SITE_KEY}
-          onVerify={handleCaptchaVerify}
-          onExpire={handleCaptchaExpire}
-          ref={captchaRef}
-        />
-      </div>
-      {loginError && (
-        <div className="text-red-600 text-sm text-center">{loginError}</div>
-      )}
-      <Button
-        type="submit"
-        className="w-full flex items-center justify-center gap-2"
-        disabled={loading}
-      >
-        {loading ? <Loading className="animate-spin h-5 w-5" /> : <LogIn className="h-5 w-5" />}
-        Pieteikties
-      </Button>
-      <div className="text-center text-sm">
-        Vai vēl neesi reģistrējies?{" "}
-        <Link href="/auth/register" className="text-primary hover:underline">
-          Izveidot kontu
-        </Link>
-      </div>
-    </form>
-  );
+
+        <div className="space-y-2">
+          <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+            Parole
+          </label>
+          <div className="relative">
+            <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              id="password"
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              placeholder="••••••••"
+              required
+              disabled={loading}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              aria-label={showPassword ? "Slēpt paroli" : "Rādīt paroli"}
+            >
+              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          </div>
+        </div>
+
+        <div className="flex justify-end">
+          <Link href="/auth/forgot-password" className="text-sm text-blue-600 hover:text-blue-700 transition-colors">
+            Aizmirsi paroli?
+          </Link>
+        </div>
+
+        {/* hCaptcha */}
+        <div className="flex justify-center">
+          <HCaptcha
+            sitekey={SITE_KEY}
+            onVerify={(token) => setCaptchaToken(token)}
+            onExpire={() => setCaptchaToken(null)}
+            onError={() => setCaptchaToken(null)}
+            ref={captchaRef}
+          />
+        </div>
+
+        {/* Error Message */}
+        {(loginError || error) && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+            {loginError || error}
+          </div>
+        )}
+
+        {/* Submit Button */}
+        <Button
+          type="submit"
+          disabled={loading || socialLoading}
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 text-base font-medium"
+        >
+          {loading ? (
+            <>
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+              Pieslēdzamies..
+            </>
+          ) : (
+            "Pieteikties"
+          )}
+        </Button>
+
+        {/* Register Link */}
+        <div className="text-center text-sm text-gray-600">
+          Vai vēl neesi reģistrējies?{" "}
+          <Link href="/auth/register" className="text-blue-600 hover:text-blue-700 font-medium transition-colors">
+            Izveidot kontu
+          </Link>
+        </div>
+      </form>
+    </>
+  )
 }
