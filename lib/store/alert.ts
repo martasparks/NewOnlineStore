@@ -2,9 +2,9 @@ import { create } from 'zustand'
 
 type AlertState = {
   message: string
-  type: 'success' | 'error' | null
+  type: 'success' | 'error' | 'warning' | 'info' | null
   show: boolean
-  setAlert: (msg: string, type: 'success' | 'error') => void
+  setAlert: (msg: string, type: 'success' | 'error' | 'warning' | 'info') => void
   hideAlert: () => void
 }
 

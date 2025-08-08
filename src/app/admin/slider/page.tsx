@@ -4,7 +4,7 @@ import { useState } from 'react'
 import useSWR from 'swr'
 import { Button } from '@/components/ui/button'
 import { Plus, Pencil, Trash, Image, Settings, Eye, ArrowRight, Monitor, Smartphone } from 'lucide-react'
-import SliderModal from '../../../components/SliderModal'
+import SliderModal from '../../../components/admin/SliderModal'
 import { useAlert } from '../../../../lib/store/alert'
 //import { useLoading } from '../../../../hooks/useLoading';
 //import { Loading } from '@/components/ui/Loading';

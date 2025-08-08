@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import useSWR from 'swr'
 import { Button } from '@/components/ui/button'
 import { Pencil, Plus, Trash, FolderOpen, Settings, Eye, ArrowRight } from 'lucide-react'
-import CategoryModal from '../../../components/CategoryModal'
+import CategoryModal from '../../../components/admin/CategoryModal'
 import { useAlert } from '../../../../lib/store/alert'
 //import { useLoading } from '../../../../hooks/useLoading';
 //import { Loading } from '@/components/ui/Loading';

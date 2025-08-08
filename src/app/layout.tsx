@@ -1,4 +1,4 @@
-import AlertMessage from "@/components/AlertMessage"
+import AlertMessage from "@/components/ui/AlertMessage"
 import type { Metadata } from "next"
 import { Montserrat } from "next/font/google"
 import { AuthProvider } from "@/contexts/AuthContext"

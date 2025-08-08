@@ -15,7 +15,7 @@ import { Switch } from '@/components/ui/switch'
 import { Pencil, Plus, Save, Image, FileText, Link2, Hash, Eye } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useLoading } from '@hooks/useLoading';
-import { useAlert } from '../../lib/store/alert'
+import { useAlert } from '../../../lib/store/alert'
 
 interface Slide {
   id?: string
