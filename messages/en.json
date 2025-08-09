@@ -2,5 +2,26 @@
   "HomePage": {
     "title": "Hello world!",
     "about": "Go to the about page"
+  },
+  "Header": {
+    "search": {
+      "placeholder": "Search products..."
+    },
+    "contact": {
+      "phone": "+371 20000000",
+      "email": "info@martasmebeles.lv"
+    },
+    "buttons": {
+      "login": "Login",
+      "register": "Register",
+      "profile": "Profile",
+      "orders": "My orders",
+      "wishlist": "Wishlist",
+      "logout": "Logout"
+    },
+    "cart": {
+      "wishlist": "0",
+      "shopping": "0"
+    }
   }
 }

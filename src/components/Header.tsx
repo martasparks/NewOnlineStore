@@ -2,8 +2,10 @@
 
 import React, { useState } from 'react'
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
+import LanguageSwitcher from './LanguageSwitcher'
 import {
   Popover,
   PopoverContent,
@@ -24,6 +26,7 @@ import {
 } from 'lucide-react'
 
 export default function Header() {
+  const t = useTranslations('Header')
   const { user, signOut } = useAuth()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
@@ -43,7 +46,7 @@ export default function Header() {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
-                placeholder="Meklēt produktus..."
+                placeholder={t('search.placeholder')}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
               />
             </div>
@@ -54,11 +57,11 @@ export default function Header() {
             <div className="hidden lg:flex items-center space-x-4 text-sm text-gray-600">
               <div className="flex items-center space-x-1">
                 <Phone className="w-4 h-4" />
-                <span>+371 20000000</span>
+                <span>{t('contact.phone')}</span>
               </div>
               <div className="flex items-center space-x-1">
                 <Mail className="w-4 h-4" />
-                <span>info@martasmebeles.lv</span>
+                <span>{t('contact.email')}</span>
               </div>
             </div>
 
@@ -66,16 +69,18 @@ export default function Header() {
               <Button variant="ghost" size="sm" className="relative">
                 <Heart className="w-5 h-5" />
                 <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
-                  0
+                  {t('cart.wishlist')}
                 </span>
               </Button>
 
               <Button variant="ghost" size="sm" className="relative">
                 <ShoppingCart className="w-5 h-5" />
                 <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
-                  0
+                  {t('cart.shopping')}
                 </span>
               </Button>
+
+              <LanguageSwitcher />
 
               {user ? (
                 <Popover>
@@ -85,7 +90,7 @@ export default function Header() {
                         <User className="w-4 h-4 text-red-600" />
                       </div>
                       <span className="hidden md:block text-sm font-medium">
-                        {user.user_metadata?.full_name || user.email?.split('@')[0] || 'Profils'}
+                        {user.user_metadata?.full_name || user.email?.split('@')[0] || t('buttons.profile')}
                       </span>
                     </Button>
                   </PopoverTrigger>
@@ -111,21 +116,21 @@ export default function Header() {
                         className="flex items-center space-x-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                       >
                         <Settings className="w-4 h-4" />
-                        <span>Mans profils</span>
+                        <span>{t('buttons.profile')}</span>
                       </Link>
                       <Link 
                         href="/orders" 
                         className="flex items-center space-x-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                       >
                         <ShoppingCart className="w-4 h-4" />
-                        <span>Mani pasūtījumi</span>
+                        <span>{t('buttons.orders')}</span>
                       </Link>
                       <Link 
                         href="/wishlist" 
                         className="flex items-center space-x-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                       >
                         <Heart className="w-4 h-4" />
-                        <span>Vēlmju saraksts</span>
+                        <span>{t('buttons.wishlist')}</span>
                       </Link>
                       <div className="border-t border-gray-100 mt-2 pt-2">
                         <button
@@ -133,7 +138,7 @@ export default function Header() {
                           className="flex items-center space-x-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors w-full text-left"
                         >
                           <LogOut className="w-4 h-4" />
-                          <span>Iziet</span>
+                          <span>{t('buttons.logout')}</span>
                         </button>
                       </div>
                     </div>
@@ -144,12 +149,12 @@ export default function Header() {
                   <Link href="/auth/login">
                     <Button variant="outline" size="sm">
                       <UserCircle className="w-4 h-4 mr-1" />
-                      Ieiet
+                      {t('buttons.login')}
                     </Button>
                   </Link>
                   <Link href="/auth/register">
                     <Button size="sm" className="bg-red-600 hover:bg-red-700">
-                      Reģistrēties
+                      {t('buttons.register')}
                     </Button>
                   </Link>
                 </div>
@@ -174,7 +179,7 @@ export default function Header() {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Meklēt produktus..."
+                  placeholder={t('search.placeholder')}
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
                 />
               </div>
@@ -183,11 +188,11 @@ export default function Header() {
             <div className="space-y-2 text-sm text-gray-600">
               <div className="flex items-center space-x-2">
                 <Phone className="w-4 h-4" />
-                <span>+371 20000000</span>
+                <span>{t('contact.phone')}</span>
               </div>
               <div className="flex items-center space-x-2">
                 <Mail className="w-4 h-4" />
-                <span>info@martasmebeles.lv</span>
+                <span>{t('contact.email')}</span>
               </div>
             </div>
           </div>
