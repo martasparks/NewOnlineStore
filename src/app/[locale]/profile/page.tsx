@@ -50,7 +50,7 @@ interface UserProfile {
 type TabType = 'account' | 'orders' | 'transactions' | 'wishlist' | 'addresses' | 'security'
 
 export default function ProfilePage() {
-  const t = useTranslations('Profile')
+  const t = useTranslations('Profils')
   const { user, loading: authLoading } = useAuth()
   const { setAlert } = useAlert()
   const router = useRouter()
@@ -300,14 +300,14 @@ export default function ProfilePage() {
             <div className="bg-white rounded-xl p-8 shadow-lg border border-gray-100">
               <div className="flex items-center mb-6">
                 <Settings className="w-6 h-6 text-blue-600 mr-3" />
-                <h3 className="text-xl font-semibold text-gray-900">Profila informācija</h3>
+                <h3 className="text-xl font-semibold text-gray-900">{t('profile.title')}</h3>
               </div>
 
               <form onSubmit={handleProfileUpdate} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-3">
                     <Label htmlFor="full_name" className="text-sm font-medium text-gray-700">
-                      Pilns vārds *
+                      {t('profile.customerName')}
                     </Label>
                     <div className="relative">
                       <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -317,7 +317,7 @@ export default function ProfilePage() {
                         onChange={(e) =>
                           setProfile(prev => (prev ? { ...prev, full_name: e.target.value } : prev))
                         }
-                        placeholder="Jūsu pilns vārds"
+                        placeholder="{t('profile.customerNamePlaceholder')}"
                         className="pl-12 py-3"
                       />
                     </div>
@@ -325,7 +325,7 @@ export default function ProfilePage() {
 
                   <div className="space-y-3">
                     <Label htmlFor="phone" className="text-sm font-medium text-gray-700">
-                      Telefona numurs
+                      {t('profile.customerPhone')}
                     </Label>
                     <div className="relative">
                       <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -335,7 +335,7 @@ export default function ProfilePage() {
                         onChange={(e) =>
                           setProfile(prev => (prev ? { ...prev, phone: e.target.value } : prev))
                         }
-                        placeholder="+371 20000000"
+                        placeholder="{t('profile.customerPhonePlaceholder')}"
                         className="pl-12 py-3"
                       />
                     </div>
@@ -344,7 +344,7 @@ export default function ProfilePage() {
 
                 <div className="space-y-3">
                   <Label htmlFor="email" className="text-sm font-medium text-gray-700">
-                    E-pasta adrese
+                    {t('profile.customerEmail')}
                   </Label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -355,12 +355,12 @@ export default function ProfilePage() {
                       className="pl-12 py-3 bg-gray-50 text-gray-500"
                     />
                   </div>
-                  <p className="text-xs text-gray-500">Drošības nolūkos, e-pastu mainīt nav iespējams!<br />Ja tomēr vēlaties nomainīt e-pasta adresi, sazinieties ar mums: info@martasmebeles.lv</p>
+                  <p className="text-xs text-gray-500">{t('profile.customerEmailNote')}</p>
                 </div>
 
                 <div className="space-y-3">
                   <Label htmlFor="company" className="text-sm font-medium text-gray-700">
-                    Uzņēmums (neobligāti)
+                    {t('profile.customerCompany')}
                   </Label>
                   <div className="relative">
                     <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -370,7 +370,7 @@ export default function ProfilePage() {
                       onChange={(e) =>
                         setProfile(prev => (prev ? { ...prev, company: e.target.value } : prev))
                       }
-                      placeholder="Jūsu uzņēmuma nosaukums"
+                      placeholder="{t('profile.customerCompanyPlaceholder')}"
                       className="pl-12 py-3"
                     />
                   </div>
@@ -385,12 +385,12 @@ export default function ProfilePage() {
                   {saving ? (
                     <>
                       <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                      Saglabā...
+                      {t('profile.savingText')}
                     </>
                   ) : (
                     <>
                       <Save className="w-5 h-5 mr-2" />
-                      Saglabāt izmaiņas
+                      {t('profile.saveButtonText')}
                     </>
                   )}
                 </Button>

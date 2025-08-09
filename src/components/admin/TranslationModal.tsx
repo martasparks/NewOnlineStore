@@ -60,16 +60,14 @@ export default function TranslationModal({
   const { setAlert } = useAlert()
 
   const namespaceOptions = [
-    'Header',
-    'Menu', 
-    'Slider',
-    'Footer',
-    'Admin',
-    'Auth',
-    'Profile',
-    'Products',
-    'Cart',
-    'default'
+    'Headeris',
+    'Navigācija', 
+    'Slideris',
+    'Footeris',
+    'Profils',
+    'Produkti',
+    'Grozs',
+    'Bez nosaukuma'
   ]
 
   useEffect(() => {

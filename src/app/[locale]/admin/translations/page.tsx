@@ -4,7 +4,7 @@ import { useState } from 'react'
 import useSWR from 'swr'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Plus, Pencil, Trash, Languages, Search, Globe } from 'lucide-react'
+import { Plus, Pencil, Trash, Languages, Search, Globe, ChevronDown, ChevronRight } from 'lucide-react'
 import TranslationModal from '@/components/admin/TranslationModal'
 import { useAlert } from '@lib/store/alert'
 
@@ -15,8 +15,8 @@ export default function TranslationsAdminPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [selected, setSelected] = useState<any>(null)
   const [searchTerm, setSearchTerm] = useState('')
-  const [filterLocale, setFilterLocale] = useState('')
   const [filterNamespace, setFilterNamespace] = useState('')
+  const [collapsedLocales, setCollapsedLocales] = useState<Set<string>>(new Set(['lv', 'en', 'ru']))
   const { setAlert } = useAlert()
 
   const handleAdd = () => {
@@ -47,20 +47,57 @@ export default function TranslationsAdminPage() {
     }
   }
 
-  // Filter translations
+  const toggleLocaleCollapse = (locale: string) => {
+    const newCollapsed = new Set(collapsedLocales)
+    if (newCollapsed.has(locale)) {
+      newCollapsed.delete(locale)
+    } else {
+      newCollapsed.add(locale)
+    }
+    setCollapsedLocales(newCollapsed)
+  }
+
+  // Filter and group translations
   const filteredTranslations = translations?.filter((t: any) => {
     const matchesSearch = t.key.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          t.value.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesLocale = !filterLocale || t.locale === filterLocale
     const matchesNamespace = !filterNamespace || t.namespace === filterNamespace
     
-    return matchesSearch && matchesLocale && matchesNamespace
+    return matchesSearch && matchesNamespace
   }) || []
 
-    const namespaces: string[] = translations 
+  // Group by locale with preferred order
+  const localeOrder = ['lv', 'en', 'ru']
+  const groupedTranslations = localeOrder.reduce((acc, locale) => {
+    const localeTranslations = filteredTranslations.filter((t: any) => t.locale === locale)
+    if (localeTranslations.length > 0) {
+      acc[locale] = localeTranslations.sort((a: any, b: any) => a.key.localeCompare(b.key))
+    }
+    return acc
+  }, {} as Record<string, any[]>)
+
+  // Add any other locales that aren't in the preferred order
+  filteredTranslations.forEach((t: any) => {
+    if (!localeOrder.includes(t.locale) && !groupedTranslations[t.locale]) {
+      groupedTranslations[t.locale] = filteredTranslations
+        .filter((tr: any) => tr.locale === t.locale)
+        .sort((a: any, b: any) => a.key.localeCompare(b.key))
+    }
+  })
+
+  const namespaces: string[] = translations 
     ? [...new Set(translations.map((t: any) => t.namespace))]
         .filter((ns): ns is string => typeof ns === 'string' && ns !== '')
     : []
+
+  const getLocaleInfo = (locale: string) => {
+    const localeMap: Record<string, { name: string, flag: string, color: string }> = {
+      'lv': { name: 'Latviešu', flag: '🇱🇻', color: 'from-red-500 to-red-600' },
+      'en': { name: 'English', flag: '🇬🇧', color: 'from-blue-500 to-blue-600' },
+      'ru': { name: 'Русский', flag: '🇷🇺', color: 'from-green-500 to-green-600' }
+    }
+    return localeMap[locale] || { name: locale.toUpperCase(), flag: '🌐', color: 'from-gray-500 to-gray-600' }
+  }
 
   return (
     <div className="space-y-8">
@@ -101,17 +138,6 @@ export default function TranslationsAdminPage() {
               />
             </div>
           </div>
-          
-          <select
-            value={filterLocale}
-            onChange={(e) => setFilterLocale(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-          >
-            <option value="">Visas valodas</option>
-            <option value="lv">Latviešu</option>
-            <option value="en">English</option>
-            <option value="ru">Русский</option>
-          </select>
 
           <select
             value={filterNamespace}
@@ -119,86 +145,125 @@ export default function TranslationsAdminPage() {
             className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
           >
             <option value="">Visi namespace</option>
-                {namespaces.map((ns) => (
-                <option key={ns} value={ns}>{ns}</option>
-                ))}
+            {namespaces.map((ns) => (
+              <option key={ns} value={ns}>{ns}</option>
+            ))}
           </select>
         </div>
       </div>
 
-      {/* Translations Table */}
-      <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="px-6 py-4 text-left text-sm font-medium text-gray-900">Atslēga</th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-gray-900">Valoda</th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-gray-900">Namespace</th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-gray-900">Tulkojums</th>
-                <th className="px-6 py-4 text-right text-sm font-medium text-gray-900">Darbības</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {filteredTranslations.map((translation: any) => (
-                <tr key={translation.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 text-sm font-mono text-gray-900">
-                    {translation.key}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-900">
-                    <div className="flex items-center space-x-2">
-                      <Globe className="w-4 h-4 text-gray-400" />
-                      <span className="font-medium">
-                        {translation.locale.toUpperCase()}
-                      </span>
+      {/* Grouped Translations */}
+      <div className="space-y-6">
+        {Object.entries(groupedTranslations).map(([locale, translations]) => {
+          const localeInfo = getLocaleInfo(locale)
+          const isCollapsed = collapsedLocales.has(locale)
+          
+          return (
+            <div key={locale} className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
+              {/* Locale Header */}
+              <div 
+                className={`bg-gradient-to-r ${localeInfo.color} p-6 text-white cursor-pointer`}
+                onClick={() => toggleLocaleCollapse(locale)}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <span className="text-3xl">{localeInfo.flag}</span>
+                    <div>
+                      <h3 className="text-xl font-bold">{localeInfo.name}</h3>
+                      <p className="text-white/80">
+                        {translations.length} {translations.length === 1 ? 'tulkojums' : 'tulkojumi'}
+                      </p>
                     </div>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">
-                    <span className="px-2 py-1 bg-gray-100 rounded-full text-xs">
-                      {translation.namespace}
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <span className="text-sm font-medium bg-white/20 px-3 py-1 rounded-full">
+                      {locale.toUpperCase()}
                     </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">
-                    {translation.value}
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleEdit(translation)}
-                        className="hover:bg-blue-50"
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDelete(translation.id)}
-                        className="hover:bg-red-50 text-red-600"
-                      >
-                        <Trash className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                    {isCollapsed ? (
+                      <ChevronRight className="w-6 h-6" />
+                    ) : (
+                      <ChevronDown className="w-6 h-6" />
+                    )}
+                  </div>
+                </div>
+              </div>
 
-        {filteredTranslations.length === 0 && (
-          <div className="text-center py-12">
-            <Languages className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Nav tulkojumu</h3>
-            <p className="text-gray-500 mb-6">Sāciet, pievienojot savu pirmo tulkojumu</p>
-            <Button onClick={handleAdd}>
-              <Plus className="w-4 h-4 mr-2" />
-              Pievienot tulkojumu
-            </Button>
-          </div>
-        )}
+              {/* Translations Table */}
+              {!isCollapsed && (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50 border-b border-gray-200">
+                      <tr>
+                        <th className="px-6 py-4 text-left text-sm font-medium text-gray-900">Atslēga</th>
+                        <th className="px-6 py-4 text-left text-sm font-medium text-gray-900">Namespace</th>
+                        <th className="px-6 py-4 text-left text-sm font-medium text-gray-900">Tulkojums</th>
+                        <th className="px-6 py-4 text-right text-sm font-medium text-gray-900">Darbības</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {translations.map((translation: any) => (
+                        <tr key={translation.id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 text-sm font-mono text-gray-900">
+                            {translation.key}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-500">
+                            <span className="px-3 py-1 bg-gray-100 rounded-full text-xs font-medium">
+                              {translation.namespace}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-900 max-w-md">
+                            <div className="truncate" title={translation.value}>
+                              {translation.value}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleEdit(translation)}
+                                className="hover:bg-blue-50 text-blue-600 border-blue-200"
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDelete(translation.id)}
+                                className="hover:bg-red-50 text-red-600 border-red-200"
+                              >
+                                <Trash className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )
+        })}
       </div>
+
+      {/* Empty State */}
+      {Object.keys(groupedTranslations).length === 0 && (
+        <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-12 text-center">
+          <Languages className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-xl font-medium text-gray-900 mb-2">Nav tulkojumu</h3>
+          <p className="text-gray-500 mb-6">
+            {searchTerm || filterNamespace 
+              ? 'Nav atrasts neviens tulkojums ar norādītajiem filtriem'
+              : 'Sāciet, pievienojot savu pirmo tulkojumu'
+            }
+          </p>
+          <Button onClick={handleAdd} className="bg-gradient-to-r from-indigo-500 to-purple-600">
+            <Plus className="w-4 h-4 mr-2" />
+            Pievienot tulkojumu
+          </Button>
+        </div>
+      )}
 
       <TranslationModal
         open={modalOpen}
