@@ -9,7 +9,7 @@ export default getRequestConfig(async ({requestLocale}) => {
     ? requested
     : routing.defaultLocale;
 
-  // Try to load from database first
+  // Load from database only
   try {
     const supabase = await createClient();
     const { data: translations } = await supabase
@@ -54,12 +54,12 @@ export default getRequestConfig(async ({requestLocale}) => {
       return { locale, messages: result };
     }
   } catch (error) {
-    console.warn('Failed to load from database, falling back to JSON:', error);
+    console.error('Failed to load translations from database:', error);
   }
 
-  // Fallback to JSON files
+  // Return empty messages if database fails
   return {
     locale,
-    messages: (await import(`../../messages/${locale}.json`)).default
+    messages: {}
   };
 });

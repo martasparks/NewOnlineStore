@@ -4,7 +4,7 @@ import { useState } from 'react'
 import useSWR from 'swr'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Plus, Pencil, Trash, Languages, Search, Download, Upload, Globe } from 'lucide-react'
+import { Plus, Pencil, Trash, Languages, Search, Globe } from 'lucide-react'
 import TranslationModal from '@/components/admin/TranslationModal'
 import { useAlert } from '@lib/store/alert'
 
@@ -17,7 +17,6 @@ export default function TranslationsAdminPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [filterLocale, setFilterLocale] = useState('')
   const [filterNamespace, setFilterNamespace] = useState('')
-  const [loading, setLoading] = useState(false)
   const { setAlert } = useAlert()
 
   const handleAdd = () => {
@@ -45,29 +44,6 @@ export default function TranslationsAdminPage() {
     } else {
       const err = await res.json()
       setAlert(err.error || 'Kļūda dzēšot tulkojumu', 'error')
-    }
-  }
-
-  const handleSync = async () => {
-    setLoading(true) // Ja nav loading state, pievienojiet to
-    
-    try {
-      const res = await fetch('/api/translations/sync', {
-        method: 'POST'
-      })
-
-      const result = await res.json()
-
-      if (res.ok) {
-        setAlert(result.message, 'success')
-        mutate() // Refresh translations list
-      } else {
-        setAlert(result.error || 'Sinhronizācijas kļūda', 'error')
-      }
-    } catch (error) {
-      setAlert('Neizdevās sinhronizēt tulkojumus', 'error')
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -100,34 +76,14 @@ export default function TranslationsAdminPage() {
               Pārvaldiet vietnes tulkojumus dažādās valodās
             </p>
           </div>
-          <div className="flex gap-3">
-            <Button 
-              onClick={handleSync}
-              disabled={loading}
-              className="bg-white/20 hover:bg-white/30 text-white border-white/30 backdrop-blur-sm"
-              size="lg"
-            >
-              {loading ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                  Sinhronizē...
-                </>
-              ) : (
-                <>
-                  <Download className="w-5 h-5 mr-2" />
-                  Sinhronizēt tulkojumus
-                </>
-              )}
-            </Button>
-            <Button 
-              onClick={handleAdd}
-              className="bg-white/20 hover:bg-white/30 text-white border-white/30 backdrop-blur-sm"
-              size="lg"
-            >
-              <Plus className="w-5 h-5 mr-2" />
-              Pievienot tulkojumu
-            </Button>
-          </div>
+          <Button 
+            onClick={handleAdd}
+            className="bg-white/20 hover:bg-white/30 text-white border-white/30 backdrop-blur-sm"
+            size="lg"
+          >
+            <Plus className="w-5 h-5 mr-2" />
+            Pievienot tulkojumu
+          </Button>
         </div>
       </div>
 
@@ -253,7 +209,3 @@ export default function TranslationsAdminPage() {
     </div>
   )
 }
-function setLoading(arg0: boolean) {
-  throw new Error('Function not implemented.')
-}
-

@@ -69,14 +69,14 @@ export default function Header() {
               <Button variant="ghost" size="sm" className="relative">
                 <Heart className="w-5 h-5" />
                 <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
-                  {t('cart.wishlist')}
+                  0
                 </span>
               </Button>
 
               <Button variant="ghost" size="sm" className="relative">
                 <ShoppingCart className="w-5 h-5" />
                 <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
-                  {t('cart.shopping')}
+                  0
                 </span>
               </Button>
 
@@ -90,7 +90,7 @@ export default function Header() {
                         <User className="w-4 h-4 text-red-600" />
                       </div>
                       <span className="hidden md:block text-sm font-medium">
-                        {user.user_metadata?.full_name || user.email?.split('@')[0] || t('buttons.profile')}
+                        {user.user_metadata?.full_name || user.email?.split('@')[0]}
                       </span>
                     </Button>
                   </PopoverTrigger>
@@ -116,21 +116,21 @@ export default function Header() {
                         className="flex items-center space-x-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                       >
                         <Settings className="w-4 h-4" />
-                        <span>{t('buttons.profile')}</span>
+                        <span>{t('profile.text')}</span>
                       </Link>
                       <Link 
                         href="/orders" 
                         className="flex items-center space-x-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                       >
                         <ShoppingCart className="w-4 h-4" />
-                        <span>{t('buttons.orders')}</span>
+                        <span>{t('profile.orders.text')}</span>
                       </Link>
                       <Link 
                         href="/wishlist" 
                         className="flex items-center space-x-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                       >
                         <Heart className="w-4 h-4" />
-                        <span>{t('buttons.wishlist')}</span>
+                        <span>{t('profile.wishlist.text')}</span>
                       </Link>
                       <div className="border-t border-gray-100 mt-2 pt-2">
                         <button
@@ -138,7 +138,7 @@ export default function Header() {
                           className="flex items-center space-x-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors w-full text-left"
                         >
                           <LogOut className="w-4 h-4" />
-                          <span>{t('buttons.logout')}</span>
+                          <span>{t('profile.logout.text')}</span>
                         </button>
                       </div>
                     </div>
@@ -149,12 +149,12 @@ export default function Header() {
                   <Link href="/auth/login">
                     <Button variant="outline" size="sm">
                       <UserCircle className="w-4 h-4 mr-1" />
-                      {t('buttons.login')}
+                      {t('login.button.text')}
                     </Button>
                   </Link>
                   <Link href="/auth/register">
                     <Button size="sm" className="bg-red-600 hover:bg-red-700">
-                      {t('buttons.register')}
+                      {t('register.button.text')}
                     </Button>
                   </Link>
                 </div>
