@@ -6,7 +6,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/contexts/AuthContext"
 import { Eye, EyeOff, Mail, Lock } from "lucide-react"
-import { Loading } from "@/components/ui/Loading"
+//import { Loading } from "@/components/ui/Loading"
 import HCaptcha from "@hcaptcha/react-hcaptcha"
 
 const SITE_KEY = process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY || ""

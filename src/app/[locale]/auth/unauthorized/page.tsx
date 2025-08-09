@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Shield, Home, User, LogOut } from 'lucide-react'
+import { Shield, Home, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/contexts/AuthContext'
 
@@ -60,15 +60,6 @@ export default function UnauthorizedPage() {
                Atgriezties sākumlapā
              </Button>
            </Link>
-           
-           <Button 
-             variant="outline" 
-             onClick={signOut}
-             className="w-full border-2 border-gray-200 hover:border-red-300 hover:bg-red-50 text-gray-700 hover:text-red-600 py-3 rounded-xl transition-all duration-200"
-           >
-             <LogOut className="w-5 h-5 mr-2" />
-             Mainīt kontu
-           </Button>
          </div>
 
          <div className="pt-4 border-t border-gray-100">

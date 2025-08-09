@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation"
-import { createClient } from "../../../../lib/supabase/server"
+import { createClient } from "@lib/supabase/server"
 import { Mail, LogIn } from 'lucide-react'
 import LoginForm from "./LoginForm"
 
