@@ -12,6 +12,7 @@ import {
   LogOut,
   User,
   Bell,
+  Languages,
 } from "lucide-react";
 
 const navItems = [
@@ -21,6 +22,7 @@ const navItems = [
   { name: "Produkti", href: "/admin/products", icon: Package },
   { name: "Pasūtījumi", href: "/admin/orders", icon: ShoppingCart },
   { name: "Klienti", href: "/admin/customers", icon: Users },
+  { name: "Tulkojumi", href: "/admin/translations", icon: Languages },
 ];
 
 export default function AdminShell({ children }: { children: React.ReactNode }) {

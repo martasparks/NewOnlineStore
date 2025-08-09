@@ -1,27 +1,28 @@
 {
   "HomePage": {
-    "title": "Hello world!",
-    "about": "Go to the about page"
+    "about": "Go to the about page",
+    "title": "Hello world!"
   },
-  "Header": {
-    "search": {
-      "placeholder": "Search products..."
-    },
-    "contact": {
-      "phone": "+371 20000000",
-      "email": "info@martasmebeles.lv"
-    },
-    "buttons": {
-      "login": "Login",
-      "register": "Register",
-      "profile": "Profile",
-      "orders": "My orders",
-      "wishlist": "Wishlist",
-      "logout": "Logout"
-    },
-    "cart": {
-      "wishlist": "0",
-      "shopping": "0"
-    }
+  "logo": {
+    "text": "MartasFurniture"
+  },
+  "buttons": {
+    "orders": "My orders",
+    "login": "Login",
+    "register": "Register",
+    "profile": "Profile",
+    "wishlist": "Wishlist",
+    "logout": "Logout"
+  },
+  "search": {
+    "placeholder": "Search products..."
+  },
+  "contact": {
+    "phone": "+371 20000000",
+    "email": "info@martasmebeles.lv"
+  },
+  "cart": {
+    "wishlist": "0",
+    "shopping": "0"
   }
 }

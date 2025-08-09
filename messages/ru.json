@@ -3,25 +3,26 @@
     "title": "Hello world!",
     "about": "Go to the about page"
   },
-  "Header": {
-    "search": {
-      "placeholder": "Поиск товаров..."
-    },
-    "contact": {
-      "phone": "+371 20000000",
-      "email": "info@martasmebeles.lv"
-    },
-    "buttons": {
-      "login": "Вход",
-      "register": "Регистрация",
-      "profile": "Профиль",
-      "orders": "Мои заказы",
-      "wishlist": "Список желаний",
-      "logout": "Выход"
-    },
-    "cart": {
-      "wishlist": "0",
-      "shopping": "0"
-    }
+  "logo": {
+    "text": "МартаМебель"
+  },
+  "search": {
+    "placeholder": "Поиск товаров..."
+  },
+  "contact": {
+    "phone": "+371 20000000",
+    "email": "info@martasmebeles.lv"
+  },
+  "buttons": {
+    "login": "Войти",
+    "register": "Регистрация",
+    "profile": "Профиль",
+    "orders": "Мои заказы",
+    "wishlist": "Список желаний",
+    "logout": "Выйти"
+  },
+  "cart": {
+    "wishlist": "0",
+    "shopping": "0"
   }
 }

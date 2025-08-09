@@ -37,7 +37,7 @@ export default function Header() {
           
           <div className="flex items-center">
             <Link href="/" className="text-2xl font-bold text-red-600">
-              MartasMēbeles
+              {t('logo.text')}
             </Link>
           </div>
 
