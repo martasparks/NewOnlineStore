@@ -26,7 +26,7 @@ import {
 } from 'lucide-react'
 
 export default function Header() {
-  const t = useTranslations('Header')
+  const t = useTranslations('Headeris')
   const { user, signOut } = useAuth()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 

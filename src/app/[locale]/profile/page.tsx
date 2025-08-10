@@ -24,7 +24,6 @@ import {
   Bell,
   Shield,
   AlertCircle,
-  CheckCircle,
   ShoppingCart,
   CreditCard,
   Heart,
@@ -73,7 +72,7 @@ export default function ProfilePage() {
       id: 'account' as TabType,
       name: 'Konta dati',
       icon: User,
-      description: 'Pārvaldiet savu profila informāciju'
+      description: t('profile.tabTitle')
     },
     {
       id: 'orders' as TabType,
@@ -401,14 +400,14 @@ export default function ProfilePage() {
             <div className="bg-white rounded-xl p-8 shadow-lg border border-gray-100">
               <div className="flex items-center mb-6">
                 <Bell className="w-6 h-6 text-indigo-600 mr-3" />
-                <h3 className="text-xl font-semibold text-gray-900">Paziņojumu iestatījumi</h3>
+                <h3 className="text-xl font-semibold text-gray-900">{t('profile.notificationTitle')}</h3>
               </div>
               
               <div className="space-y-6">
                 <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                   <div>
-                    <p className="font-medium text-gray-900">E-pasta paziņojumi</p>
-                    <p className="text-sm text-gray-600">Saņemt informāciju par pasūtījumiem un piedāvājumiem</p>
+                    <p className="font-medium text-gray-900">{t('profile.notificationAllow')}</p>
+                    <p className="text-sm text-gray-600">{t('profile.notificationAllow2')}</p>
                   </div>
                   <Switch
                     checked={profile?.notifications_enabled ?? true}
@@ -442,10 +441,10 @@ export default function ProfilePage() {
           <div className="bg-white rounded-xl p-8 shadow-lg border border-gray-100">
             <div className="text-center py-12">
               <ShoppingCart className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Nav pasūtījumu</h3>
-              <p className="text-gray-600 mb-6">Jūs vēl neesat veikuši nevienu pasūtījumu</p>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">{t('profile.noOrdersTitle')}</h3>
+              <p className="text-gray-600 mb-6">{t('profile.noOrdersSubTitle')}</p>
               <Button className="bg-gradient-to-r from-emerald-500 to-emerald-600">
-                Sākt iepirkšanos
+                {t('profile.shopNowButton')}
               </Button>
             </div>
           </div>
