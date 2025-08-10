@@ -17,7 +17,7 @@ import {
 
 const navItems = [
   { name: "Pārskats", href: "/admin", icon: LayoutDashboard },
-  { name: "Navigācija", href: "/admin/navigation", icon: Settings },
+  { name: "Navigācija (Kategorijas)", href: "/admin/navigation", icon: Settings },
   { name: "Slaideris", href: "/admin/slider", icon: Package },
   { name: "Produkti", href: "/admin/products", icon: Package },
   { name: "Pasūtījumi", href: "/admin/orders", icon: ShoppingCart },

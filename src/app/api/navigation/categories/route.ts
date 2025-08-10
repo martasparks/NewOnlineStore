@@ -1,19 +1,29 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '../../../../../lib/supabase/server'
+import { createClient } from '@lib/supabase/server'
 
 export async function GET() {
   const supabase = await createClient()
   
-  const { data, error } = await supabase
+  const { data: categories, error } = await supabase
     .from('navigation_categories')
-    .select('*')
+    .select(`
+      *,
+      products!category_id(count)
+    `)
+    .eq('is_active', true)
     .order('order_index')
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  return NextResponse.json(data, {
+  // Pievienojam produktu skaitu
+  const enrichedCategories = categories?.map(cat => ({
+    ...cat,
+    productCount: cat.products?.[0]?.count || 0
+  }))
+
+  return NextResponse.json(enrichedCategories, {
     headers: {
       'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300'
     }

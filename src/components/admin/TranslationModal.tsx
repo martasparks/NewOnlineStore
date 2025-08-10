@@ -66,6 +66,7 @@ export default function TranslationModal({
     'Footeris',
     'Profils',
     'Produkti',
+    'Kategorijas',
     'Grozs',
     'Bez nosaukuma'
   ]
