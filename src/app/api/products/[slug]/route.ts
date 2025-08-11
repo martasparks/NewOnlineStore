@@ -7,7 +7,6 @@ export async function GET(
 ) {
   try {
     const resolvedParams = await params
-    console.log('Resolved params:', resolvedParams) // Debug
     
     if (!resolvedParams || !resolvedParams.slug) {
       return NextResponse.json({ error: 'Slug parameter is required' }, { status: 400 })

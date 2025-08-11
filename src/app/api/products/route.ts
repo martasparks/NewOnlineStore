@@ -5,14 +5,16 @@ export async function GET(request: NextRequest) {
   const supabase = await createClient()
   const { searchParams } = new URL(request.url)
   
-  // Query parametri
   const page = parseInt(searchParams.get('page') || '1')
   const limit = parseInt(searchParams.get('limit') || '12')
   const category = searchParams.get('category')
+  const categories = searchParams.get('categories')
+  const minPrice = searchParams.get('minPrice')
+  const maxPrice = searchParams.get('maxPrice')
+  const inStock = searchParams.get('inStock')
   const featured = searchParams.get('featured')
   const search = searchParams.get('search')
   const sort = searchParams.get('sort') || 'name'
-  const order = searchParams.get('order') || 'asc'
   const admin = searchParams.get('admin') === 'true'
 
   let query = supabase
@@ -22,9 +24,7 @@ export async function GET(request: NextRequest) {
       navigation_categories!category_id(id, name, slug),
       navigation_subcategories!subcategory_id(id, name, slug)
     `)
-    .order('created_at', { ascending: false })
 
-  // Ja nav admin mode, rādām tikai aktīvos
   if (!admin) {
     query = query.eq('status', 'active')
   }
@@ -32,6 +32,23 @@ export async function GET(request: NextRequest) {
   // Filtri
   if (category) {
     query = query.eq('category_id', category)
+  }
+  
+  if (categories) {
+    const categorySlugs = categories.split(',')
+    query = query.in('navigation_categories.slug', categorySlugs)
+  }
+  
+  if (minPrice) {
+    query = query.gte('price', parseInt(minPrice))
+  }
+  
+  if (maxPrice) {
+    query = query.lte('price', parseInt(maxPrice))
+  }
+  
+  if (inStock === 'true') {
+    query = query.gt('stock_quantity', 0)
   }
   
   if (featured === 'true') {
@@ -42,16 +59,26 @@ export async function GET(request: NextRequest) {
     query = query.or(`name.ilike.%${search}%, description.ilike.%${search}%`)
   }
 
-  // Sortēšana
-  if (sort === 'price_desc') {
-    query = query.order('price', { ascending: false })
-  } else if (sort === 'price') {
-    query = query.order('price', { ascending: true })
-  } else {
-    query = query.order(sort, { ascending: order === 'asc' })
+  switch(sort) {
+    case 'name':
+      query = query.order('name', { ascending: true })
+      break
+    case 'price_asc':
+      query = query.order('price', { ascending: true })
+      break
+    case 'price_desc':
+      query = query.order('price', { ascending: false })
+      break
+    case 'created_at':
+      query = query.order('created_at', { ascending: false })
+      break
+    case 'featured':
+      query = query.order('featured', { ascending: false }).order('name', { ascending: true })
+      break
+    default:
+      query = query.order('name', { ascending: true })
   }
 
-  // Paginācija
   const from = (page - 1) * limit
   const to = from + limit - 1
   
@@ -60,15 +87,16 @@ export async function GET(request: NextRequest) {
   const { data, error, count } = await query
 
   if (error) {
+    console.error('Database query error:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
   return NextResponse.json({
-    products: data,
+    products: data || [],
     pagination: {
       page,
       limit,
-      total: count,
+      total: count || 0,
       totalPages: Math.ceil((count || 0) / limit)
     }
   }, {
@@ -78,11 +106,9 @@ export async function GET(request: NextRequest) {
   })
 }
 
-// Pievienojam PUT un DELETE metodes
 export async function PUT(req: Request) {
   const supabase = await createClient()
   
-  // Pārbaudam admin tiesības
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -99,8 +125,7 @@ export async function PUT(req: Request) {
   }
 
   const body = await req.json()
-  
-  // Izņemam JOIN laukus un read-only laukus
+
   const { 
     id, 
     navigation_categories, 
@@ -114,8 +139,6 @@ export async function PUT(req: Request) {
     return NextResponse.json({ error: 'ID is required' }, { status: 400 })
   }
 
-  console.log('Clean update data:', updateData) // Debug
-
   const { data, error } = await supabase
     .from('products')
     .update({
@@ -123,7 +146,7 @@ export async function PUT(req: Request) {
       updated_at: new Date().toISOString()
     })
     .eq('id', id)
-    .select('*') // Vienkāršs select bez JOIN
+    .select('*')
 
   if (error) {
     console.error('Supabase update error:', error)
@@ -136,7 +159,6 @@ export async function PUT(req: Request) {
 export async function DELETE(req: Request) {
   const supabase = await createClient()
   
-  // Pārbaudam admin tiesības
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -172,8 +194,7 @@ export async function DELETE(req: Request) {
 
 export async function POST(req: Request) {
   const supabase = await createClient()
-  
-  // Pārbaudam admin tiesības
+
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

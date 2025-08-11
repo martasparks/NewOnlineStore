@@ -20,7 +20,6 @@ import {
   Share2,
   RotateCcw,
   Award,
-  Check,
   ChevronRight,
   Package
 } from 'lucide-react'
@@ -113,7 +112,6 @@ export default function ProductPage() {
         console.log('Error sharing:', err)
       }
     } else {
-      // Fallback - copy to clipboard
       navigator.clipboard.writeText(window.location.href)
     }
   }
@@ -142,7 +140,7 @@ export default function ProductPage() {
       <MainNavigation />
       
       <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Breadcrumb */}
+
         <nav className="flex items-center space-x-2 text-sm text-gray-500 mb-8">
           <a href="/" className="hover:text-gray-700 transition-colors">Sākums</a>
           <ChevronRight className="w-4 h-4" />
@@ -160,7 +158,7 @@ export default function ProductPage() {
         </nav>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
-          {/* Product Gallery */}
+
           <div className="lg:sticky lg:top-8 lg:h-fit">
             <ProductGallery 
               images={[...product.images, ...product.gallery]}
@@ -168,9 +166,8 @@ export default function ProductPage() {
             />
           </div>
 
-          {/* Product Info */}
           <div className="space-y-8">
-            {/* Product Header */}
+
             <div className="space-y-4">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
@@ -197,7 +194,6 @@ export default function ProductPage() {
                 </Button>
               </div>
 
-              {/* Short Description */}
               {product.short_description && (
                 <p className="text-lg text-gray-600 leading-relaxed">
                   {product.short_description}
@@ -205,7 +201,6 @@ export default function ProductPage() {
               )}
             </div>
 
-            {/* Price Section */}
             <div className="bg-gray-50 rounded-2xl p-6">
               <div className="flex items-center space-x-4 mb-4">
                 <span className="text-4xl font-bold text-gray-900">
@@ -222,13 +217,19 @@ export default function ProductPage() {
                   </>
                 )}
               </div>
+
+              <div className="mb-4 pb-4 border-b border-gray-200">
+                <div className="text-sm text-gray-600">
+                  Cena bez PVN: <span className="font-medium text-gray-900">€{(effectivePrice / 1.21).toFixed(2)}</span>
+                </div>
+              </div>
               
               <div className="flex items-center space-x-2 text-sm">
                 {product.stock_quantity > 0 ? (
                   <>
                     <div className="w-3 h-3 bg-green-500 rounded-full"></div>
                     <span className="text-green-700 font-medium">
-                      Pieejams ({product.stock_quantity} gab.)
+                      Noliktavā ({product.stock_quantity} gab.)
                     </span>
                   </>
                 ) : (
@@ -240,7 +241,6 @@ export default function ProductPage() {
               </div>
             </div>
 
-            {/* Attributes */}
             {product.product_attribute_values && product.product_attribute_values.length > 0 && (
               <div className="space-y-6">
                 {product.product_attribute_values.map((attr, index) => (
@@ -271,7 +271,6 @@ export default function ProductPage() {
               </div>
             )}
 
-            {/* Quantity and Add to Cart */}
             <div className="space-y-6">
               <div>
                 <label className="block text-sm font-semibold text-gray-900 mb-3">
@@ -304,7 +303,6 @@ export default function ProductPage() {
                 </div>
               </div>
 
-              {/* Action Buttons */}
               <div className="space-y-4">
                 <Button
                   onClick={handleAddToCart}
@@ -332,7 +330,6 @@ export default function ProductPage() {
               </div>
             </div>
 
-            {/* Features */}
             <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-2xl p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Ko jūs iegūstat</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -380,7 +377,6 @@ export default function ProductPage() {
           </div>
         </div>
 
-        {/* Product Details Tabs */}
         <div className="mt-20">
           <div className="border-b border-gray-200">
             <nav className="flex space-x-8">
@@ -439,7 +435,7 @@ export default function ProductPage() {
                         </div>
                       )}
                       <div className="flex justify-between py-2 border-b border-gray-100">
-                        <dt className="font-medium text-gray-600">Pieejamība:</dt>
+                        <dt className="font-medium text-gray-600">Daudzums noliktavā:</dt>
                         <dd className="text-gray-900">{product.stock_quantity} gab.</dd>
                       </div>
                     </dl>

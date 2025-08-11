@@ -39,7 +39,7 @@ export default function ProductCard({ product, viewMode = 'grid' }: ProductCardP
   const hasDiscount = product.sale_price && product.sale_price < product.price
   const discountPercent = hasDiscount ? Math.round(((product.price - product.sale_price!) / product.price) * 100) : 0
   
-  const mainImage = product.images?.[0] || '/placeholder-product.jpg'
+  const mainImage: string | undefined = product.images?.[0];
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -62,7 +62,7 @@ export default function ProductCard({ product, viewMode = 'grid' }: ProductCardP
           {/* Product Image */}
           <div className="w-48 h-48 flex-shrink-0 relative overflow-hidden">
             <Link href={`/produkti/${product.slug}`}>
-              {!imageError ? (
+              {!imageError && mainImage ? (
                 <Image
                   src={mainImage}
                   alt={product.name}
@@ -172,7 +172,7 @@ export default function ProductCard({ product, viewMode = 'grid' }: ProductCardP
       {/* Product Image */}
       <div className="relative aspect-square overflow-hidden">
         <Link href={`/produkti/${product.slug}`}>
-          {!imageError ? (
+          {!imageError && mainImage ? (
             <Image
               src={mainImage}
               alt={product.name}
@@ -182,14 +182,7 @@ export default function ProductCard({ product, viewMode = 'grid' }: ProductCardP
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
             />
           ) : (
-            <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
-              <div className="text-center">
-                <div className="w-16 h-16 bg-gray-300 rounded-full flex items-center justify-center mx-auto mb-2">
-                  <Tag className="w-8 h-8 text-gray-500" />
-                </div>
-                <p className="text-sm text-gray-500">Nav attēla</p>
-              </div>
-            </div>
+            <ProductPlaceholder className="w-full h-full" />
           )}
         </Link>
         

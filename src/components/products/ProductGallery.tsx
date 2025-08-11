@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { ChevronLeft, ChevronRight, ZoomIn } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { ProductPlaceholder } from '@/components/ui/ProductPlaceholder'
 
 interface ProductGalleryProps {
   images: string[]
@@ -13,11 +14,31 @@ interface ProductGalleryProps {
 export default function ProductGallery({ images, alt }: ProductGalleryProps) {
   const [currentImage, setCurrentImage] = useState(0)
   const [isZoomed, setIsZoomed] = useState(false)
+  const [imageError, setImageError] = useState(false)
 
-  if (!images || images.length === 0) {
+  useEffect(() => {
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (isZoomed) {
+      if (e.key === 'Escape') {
+        setIsZoomed(false)
+      } else if (e.key === 'ArrowLeft') {
+        prevImage()
+      } else if (e.key === 'ArrowRight') {
+        nextImage()
+      }
+    }
+  }
+
+  window.addEventListener('keydown', handleKeyDown)
+  return () => window.removeEventListener('keydown', handleKeyDown)
+}, [isZoomed])
+
+  const hasImages = images && images.length > 0
+
+  if (!hasImages || imageError) {
     return (
-      <div className="aspect-square bg-gray-200 rounded-lg flex items-center justify-center">
-        <span className="text-gray-400">Nav attēla</span>
+      <div className="aspect-square rounded-lg overflow-hidden">
+        <ProductPlaceholder className="w-full h-full" />
       </div>
     )
   }
@@ -32,17 +53,21 @@ export default function ProductGallery({ images, alt }: ProductGalleryProps) {
 
   return (
     <div className="space-y-4">
-      {/* Main Image */}
-      <div className="relative aspect-square bg-gray-100 rounded-lg overflow-hidden group">
-        <Image
-          src={images[currentImage]}
-          alt={`${alt} - attēls ${currentImage + 1}`}
-          fill
-          className="object-cover cursor-zoom-in"
-          onClick={() => setIsZoomed(true)}
-        />
-        
-        {/* Navigation Arrows */}
+
+      <div className="relative aspect-[4/3] bg-gray-100 rounded-lg overflow-hidden group">
+        {!imageError ? (
+          <Image
+            src={images[currentImage]}
+            alt={`${alt} - attēls ${currentImage + 1}`}
+            fill
+            className="object-contain object-center cursor-zoom-in"
+            onClick={() => setIsZoomed(true)}
+            onError={() => setImageError(true)}
+          />
+        ) : (
+          <ProductPlaceholder className="w-full h-full" />
+        )}
+
         {images.length > 1 && (
           <>
             <Button
@@ -64,7 +89,6 @@ export default function ProductGallery({ images, alt }: ProductGalleryProps) {
           </>
         )}
 
-        {/* Zoom Icon */}
         <Button
           variant="outline"
           size="icon"
@@ -74,7 +98,6 @@ export default function ProductGallery({ images, alt }: ProductGalleryProps) {
           <ZoomIn className="w-4 h-4" />
         </Button>
 
-        {/* Image Counter */}
         {images.length > 1 && (
           <div className="absolute bottom-4 right-4 bg-black/50 text-white text-sm px-3 py-1 rounded-full">
             {currentImage + 1} / {images.length}
@@ -82,51 +105,92 @@ export default function ProductGallery({ images, alt }: ProductGalleryProps) {
         )}
       </div>
 
-      {/* Thumbnail Grid */}
       {images.length > 1 && (
         <div className="grid grid-cols-4 gap-2">
           {images.map((image, index) => (
             <button
               key={index}
-              onClick={() => setCurrentImage(index)}
-              className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${
+              onClick={() => {
+                setCurrentImage(index)
+                setImageError(false)
+              }}
+              className={`relative aspect-[4/3] rounded-lg overflow-hidden border-2 transition-all ${
                 index === currentImage 
-                  ? 'border-blue-500 ring-2 ring-blue-200' 
-                  : 'border-gray-200 hover:border-gray-300'
+                  ? 'border-red-500 ring-2 ring-red-200' 
+                  : 'border-gray-100 hover:border-gray-200'
               }`}
             >
               <Image
                 src={image}
                 alt={`${alt} - sīkattēls ${index + 1}`}
                 fill
-                className="object-cover"
+                className="object-contain bg-gray-50"
+                onError={() => setImageError(true)}
               />
             </button>
           ))}
         </div>
       )}
 
-      {/* Zoom Modal */}
       {isZoomed && (
         <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4">
           <div className="relative max-w-4xl max-h-full">
-            <Image
-              src={images[currentImage]}
-              alt={`${alt} - palielināts attēls`}
-              width={800}
-              height={800}
-              className="max-w-full max-h-full object-contain"
-            />
+            {!imageError ? (
+              <Image
+                src={images[currentImage]}
+                alt={`${alt} - palielināts attēls`}
+                width={800}
+                height={800}
+                className="max-w-full max-h-full object-contain"
+                onError={() => setImageError(true)}
+              />
+            ) : (
+              <ProductPlaceholder className="w-[800px] h-[800px]" />
+            )}
+            
+            {images.length > 1 && (
+              <>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white"
+                  onClick={prevImage}
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white"
+                  onClick={nextImage}
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </Button>
+              </>
+            )}
+            
+            {images.length > 1 && (
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/70 text-white text-sm px-4 py-2 rounded-full">
+                {currentImage + 1} / {images.length}
+              </div>
+            )}
+            
             <Button
               variant="outline"
-              className="absolute top-4 right-4 bg-white"
+              className="absolute top-4 right-4 bg-white/90 hover:bg-white"
               onClick={() => setIsZoomed(false)}
             >
               Aizvērt
             </Button>
           </div>
+
+          <div 
+            className="absolute inset-0 -z-10" 
+            onClick={() => setIsZoomed(false)}
+          />
         </div>
       )}
+
     </div>
   )
 }
