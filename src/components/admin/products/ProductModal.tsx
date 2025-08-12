@@ -1,6 +1,5 @@
 'use client'
 
-import * as React from "react"
 import {
   Dialog,
   DialogContent,
@@ -10,7 +9,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Pencil, Plus, Save, AlertCircle, CheckCircle2 } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react' // ← Pievienots useCallback
 import { useLoading } from '@hooks/useLoading'
 import { useAlert } from '@lib/store/alert'
 
@@ -19,7 +18,7 @@ import ProductDetailsForm from './ProductDetailsForm'
 import CategorySelector from './CategorySelector'
 import DimensionsForm from './DimensionsForm'
 import ImageUploadSection from './ImageUploadSection'
-import { Product, Category, Subcategory, ProductDimensions, ValidationError } from './types'
+import { Product, Category, Subcategory, ProductDimensions } from './types'
 import { ProductValidation } from './ProductValidation'
 
 interface ProductModalProps {
@@ -61,14 +60,28 @@ export default function ProductModal({
   
   const [categories, setCategories] = useState<Category[]>([])
   const [subcategories, setSubcategories] = useState<Subcategory[]>([])
-  const [validationErrors, setValidationErrors] = useState<ValidationError[]>([])
-  const [isFormValid, setIsFormValid] = useState(false)
   
   const { isLoading, withLoading } = useLoading(false)
   const { setAlert } = useAlert()
   const initializedRef = React.useRef(false)
 
-  // Inicializācija — izpilda vienu reizi katrā atvēršanas ciklā
+  // Izmantojiet useMemo validācijai
+  const validationErrors = useMemo(() => {
+    return ProductValidation.validateProduct(product)
+  }, [product])
+
+  const isFormValid = useMemo(() => {
+    return validationErrors.length === 0
+  }, [validationErrors])
+
+  // ← KRITISKAIS LABOJUMS: Stabilizējam onOpenChange callback
+  const handleOpenChange = useCallback((newOpen: boolean) => {
+    if (!newOpen && !isLoading) {
+      onClose()
+    }
+  }, [onClose, isLoading])
+
+  // Inicializācija
   useEffect(() => {
     if (!open) {
       initializedRef.current = false
@@ -80,8 +93,6 @@ export default function ProductModal({
 
     if (initialData) {
       setProduct(prev => {
-        // Ja jau ielādēts tas pats ieraksts, neatjauninām
-        // @ts-ignore
         if ((prev as any).id && (initialData as any).id && (prev as any).id === (initialData as any).id) {
           return prev
         }
@@ -91,22 +102,14 @@ export default function ProductModal({
         }
       })
     } else {
-      // Tikai sākotnējai atvēršanai
       resetForm()
     }
 
     initializedRef.current = true
   }, [open, initialData])
 
-  // Validācija katru reizi, kad product mainās
-  useEffect(() => {
-    const errors = ProductValidation.validateProduct(product)
-    setValidationErrors(errors)
-    setIsFormValid(errors.length === 0)
-  }, [product])
-
   // Funkcijas
-  const resetForm = () => {
+  const resetForm = useCallback(() => {
     setProduct({
       name: '',
       slug: '',
@@ -127,10 +130,9 @@ export default function ProductModal({
       group_id: '',
       parentSlug: undefined
     })
-    setValidationErrors([])
-  }
+  }, [])
 
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     try {
       const [categoriesRes, subcategoriesRes] = await Promise.all([
         fetch('/api/navigation/categories'),
@@ -150,9 +152,9 @@ export default function ProductModal({
       console.error('Error fetching categories:', error)
       setAlert('Neizdevās ielādēt kategorijas', 'error')
     }
-  }
+  }, [setAlert])
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target
     
     if (type === 'number') {
@@ -169,40 +171,42 @@ export default function ProductModal({
         setProduct(prev => ({ ...prev, [name]: parseFloat(value) || 0 }))
       }
     } else {
-      // handle parentSlug as a normal string field
       setProduct(prev => ({ ...prev, [name]: value }))
     }
     
-    // Auto-generate slug no nosaukuma (tikai jauniem produktiem)
+    // Auto-generate slug
     if (name === 'name' && !isEdit) {
       const slug = ProductValidation.sanitizeSlug(value)
       setProduct(prev => ({ ...prev, slug }))
       
-      // Auto-generate SKU ja nav aizpildīts
-      if (!product.sku) {
-        const sku = ProductValidation.generateSKU(value)
-        setProduct(prev => ({ ...prev, sku }))
-      }
+      // Check if SKU is empty before generating
+      setProduct(prev => {
+        if (!prev.sku) {
+          const sku = ProductValidation.generateSKU(value)
+          return { ...prev, sku }
+        }
+        return prev
+      })
     }
-  }
+  }, [isEdit])
 
-  const handleSwitchChange = (field: string, value: boolean) => {
+  const handleSwitchChange = useCallback((field: string, value: boolean) => {
     setProduct(prev => ({ ...prev, [field]: value }))
-  }
+  }, [])
 
-  const handleCategoryChange = (categoryId: string) => {
+  const handleCategoryChange = useCallback((categoryId: string) => {
     setProduct(prev => ({ 
       ...prev, 
       category_id: categoryId,
-      subcategory_id: '' // Reset subcategory kad mainām kategoriju
+      subcategory_id: '' 
     }))
-  }
+  }, [])
 
-  const handleSubcategoryChange = (subcategoryId: string) => {
+  const handleSubcategoryChange = useCallback((subcategoryId: string) => {
     setProduct(prev => ({ ...prev, subcategory_id: subcategoryId }))
-  }
+  }, [])
 
-  const handleDimensionChange = (key: keyof ProductDimensions, value: number | undefined) => {
+  const handleDimensionChange = useCallback((key: keyof ProductDimensions, value: number | undefined) => {
     setProduct(prev => ({
       ...prev,
       dimensions: {
@@ -210,22 +214,21 @@ export default function ProductModal({
         [key]: value
       }
     }))
-  }
+  }, [])
 
-  const handleWeightChange = (weight: number) => {
+  const handleWeightChange = useCallback((weight: number) => {
     setProduct(prev => ({ ...prev, weight }))
-  }
+  }, [])
 
-  const handleImagesChange = (images: string[]) => {
+  const handleImagesChange = useCallback((images: string[]) => {
     setProduct(prev => ({ ...prev, images }))
-  }
+  }, [])
 
-  const handleGalleryChange = (gallery: string[]) => {
+  const handleGalleryChange = useCallback((gallery: string[]) => {
     setProduct(prev => ({ ...prev, gallery }))
-  }
+  }, [])
 
-  const handleSubmit = async () => {
-    // Pārbaudām validāciju pirms sūtīšanas
+  const handleSubmit = useCallback(async () => {
     if (!isFormValid) {
       setAlert('Lūdzu novērsiet visas kļūdas pirms saglabāšanas', 'error')
       return
@@ -234,13 +237,17 @@ export default function ProductModal({
     await withLoading(async () => {
       try {
         const method = isEdit ? 'PUT' : 'POST'
-        // include parentSlug in payload, but only as undefined if empty
-        const payload = { ...product, parentSlug: product.parentSlug || undefined }
+      const payload = { 
+        ...product, 
+        parentSlug: product.parentSlug || undefined 
+      }
+
+      delete (payload as any).groupId
+
         const res = await fetch('/api/products', {
           method,
           headers: { 
             'Content-Type': 'application/json',
-            // Pievienojam CSRF aizsardzību
             'X-Requested-With': 'XMLHttpRequest'
           },
           body: JSON.stringify(payload),
@@ -266,14 +273,10 @@ export default function ProductModal({
         )
       }
     })
-  }
-
-  const getFieldError = (fieldName: string): string | undefined => {
-    return validationErrors.find(error => error.field === fieldName)?.message
-  }
+  }, [isFormValid, isEdit, product, setAlert, withLoading, onSave, onClose])
 
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose(); }}>
+    <Dialog open={open} onOpenChange={handleOpenChange}> {/* ← LABOTS: izmanto stabilizēto callback */}
       <DialogContent className="max-w-6xl max-h-[95vh] flex flex-col">
         <DialogHeader className="pb-4 border-b border-gray-200">
           <DialogTitle className="text-2xl font-bold flex items-center">
@@ -290,7 +293,6 @@ export default function ProductModal({
             )}
           </DialogTitle>
           
-          {/* Validācijas statuss */}
           <div className="flex items-center mt-2">
             {isFormValid ? (
               <div className="flex items-center text-green-600">
@@ -308,7 +310,6 @@ export default function ProductModal({
 
         <ScrollArea className="flex-1 pr-4 overflow-y-auto">
           <div className="space-y-8 py-6">
-            {/* Produkta detaļas */}
             <ProductDetailsForm
               product={product}
               onChange={handleChange}
@@ -316,7 +317,6 @@ export default function ProductModal({
               isEdit={isEdit}
             />
 
-            {/* Kategoriju izvēle */}
             <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Kategorijas</h3>
               <CategorySelector
@@ -344,8 +344,11 @@ export default function ProductModal({
                     value={product.group_id || ''}
                     onChange={handleChange}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    placeholder="Unikāls ID"
+                    placeholder="Unikāls grupas ID"
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Produkti ar vienādu Group ID tiks grupēti kopā kā krāsas varianti
+                  </p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="parentSlug">
@@ -367,7 +370,6 @@ export default function ProductModal({
               </div>
             </div>
 
-            {/* Izmēri un svars */}
             <DimensionsForm
               dimensions={product.dimensions || {}}
               weight={product.weight}
@@ -375,7 +377,6 @@ export default function ProductModal({
               onWeightChange={handleWeightChange}
             />
 
-            {/* Attēli */}
             <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
               <h3 className="text-lg font-semibold text-gray-900 mb-6">Attēli</h3>
               
@@ -396,7 +397,6 @@ export default function ProductModal({
               </div>
             </div>
 
-            {/* Validācijas kļūdu parādīšana */}
             {validationErrors.length > 0 && (
               <div className="bg-red-50 border border-red-200 rounded-xl p-6">
                 <div className="flex items-center mb-4">
@@ -416,7 +416,6 @@ export default function ProductModal({
           </div>
         </ScrollArea>
 
-        {/* Footer ar pogām */}
         <div className="border-t border-gray-200 pt-4 flex items-center justify-between">
           <div className="text-sm text-gray-500">
             {isEdit ? 'Labojat esošu produktu' : 'Veidojat jaunu produktu'}

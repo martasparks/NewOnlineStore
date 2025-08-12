@@ -1,7 +1,7 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState } from 'react'
-import { createClient } from '../../lib/supabase/client'
+import React, { createContext, useContext, useEffect, useState } from 'react'
+import { createClient } from '@lib/supabase/client'
 import { AuthState } from '@/types/auth'
 
 interface AuthContextType extends AuthState {

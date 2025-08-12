@@ -9,16 +9,32 @@ function isUUID(v?: string | null): boolean {
   return !!v && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v)
 }
 
-async function resolveGroupId(
-  supabase: any,
-  params: { groupId?: string | null; parentSlug?: string | null; parentSku?: string | null }
-): Promise<string | null> {
-  const { groupId, parentSlug, parentSku } = params
+  async function resolveGroupId(
+    supabase: any,
+    params: { groupId?: string | null; parentSlug?: string | null; parentSku?: string | null }
+  ): Promise<string | null> {
+    const { groupId, parentSlug, parentSku } = params
 
-  // If explicit valid UUID provided, trust but verify it exists in products
-  if (groupId && typeof groupId === 'string') {
-    return groupId
-  }
+    // Ja ir groupId
+    if (groupId && typeof groupId === 'string' && groupId.trim()) {
+      // Pārbaudām, vai tas ir UUID formātā
+      const isUuidFormat = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(groupId)
+      
+      if (isUuidFormat) {
+        // Meklējam pēc UUID
+        const { data } = await supabase
+          .from('products')
+          .select('group_id')
+          .eq('group_id', groupId)
+          .limit(1)
+          .single()
+        
+        if (data) return groupId
+      } else {
+        // Nav UUID - vienkārši atgriežam kā ir (ja datu bāze ir TEXT)
+        return groupId
+      }
+    }
 
   // Try parentSlug
   if (parentSlug) {
@@ -264,7 +280,12 @@ export async function POST(req: Request) {
 
     const body = await req.json()
 
-    const { groupId, parentSlug, parentSku, ...rest } = body || {}
+    const { group_id, parentSlug, ...rest } = body || {}
+    const resolvedGroupId = await resolveGroupId(supabase, { 
+      groupId: group_id,
+      parentSlug, 
+      parentSku: null 
+    })
 
     // Server-side validācija
     const validationErrors = ProductValidation.validateProduct(rest)
@@ -274,9 +295,6 @@ export async function POST(req: Request) {
         validationErrors 
       }, { status: 400 })
     }
-
-    // Resolve group_id from provided hints (or null for now)
-    const resolvedGroupId = await resolveGroupId(supabase, { groupId, parentSlug, parentSku })
 
     // Striktāka pārbaude: ja resolvedGroupId nav null un nav no aktīva produkta (un nav admin), noraidīt
     if (resolvedGroupId) {
@@ -309,7 +327,7 @@ export async function POST(req: Request) {
     // Izveidojam produktu (ar grupas saisti, ja dota)
     const insertPayload = {
       ...rest,
-      group_id: resolvedGroupId ?? null,
+      group_id: resolvedGroupId || null,
       created_by: user.id,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
@@ -427,11 +445,28 @@ export async function PUT(req: Request) {
       }
     }
 
+    // Validējam group_id ja tas tiek mainīts
+    if (updateData.group_id) {
+      const { data: groupExists } = await supabase
+        .from('products')
+        .select('id')
+        .eq('group_id', updateData.group_id)
+        .limit(1)
+        .single()
+        
+      if (!groupExists) {
+        return NextResponse.json({ 
+          error: 'Norādītā grupa neeksistē' 
+        }, { status: 400 })
+      }
+    }
+
+    // ← ŠEIT BIJA TRŪKSTOŠĀ updatePayload DEFINĪCIJA
     const updatePayload = {
       ...updateData,
-      updated_at: new Date().toISOString(),
-      ...(updateData.group_id ? { group_id: updateData.group_id } : {})
+      updated_at: new Date().toISOString()
     }
+
     const { data, error } = await supabase
       .from('products')
       .update(updatePayload)
