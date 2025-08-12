@@ -38,7 +38,7 @@ export default function ProductModal({
   const isEdit = !!initialData
   
   // State pārvaldība
-  const [product, setProduct] = useState<Product>({
+  const [product, setProduct] = useState<Product & { group_id?: string; parentSlug?: string }>({
     name: '',
     slug: '',
     description: '',
@@ -54,7 +54,9 @@ export default function ProductModal({
     meta_title: '',
     meta_description: '',
     weight: 0,
-    dimensions: {}
+    dimensions: {},
+    group_id: '',
+    parentSlug: undefined
   })
   
   const [categories, setCategories] = useState<Category[]>([])
@@ -64,21 +66,37 @@ export default function ProductModal({
   
   const { isLoading, withLoading } = useLoading(false)
   const { setAlert } = useAlert()
+  const initializedRef = React.useRef(false)
 
-  // Efekti
+  // Inicializācija — izpilda vienu reizi katrā atvēršanas ciklā
   useEffect(() => {
-    if (open) {
-      fetchCategories()
-      if (initialData) {
-        setProduct({
+    if (!open) {
+      initializedRef.current = false
+      return
+    }
+    if (initializedRef.current) return
+
+    fetchCategories()
+
+    if (initialData) {
+      setProduct(prev => {
+        // Ja jau ielādēts tas pats ieraksts, neatjauninām
+        // @ts-ignore
+        if ((prev as any).id && (initialData as any).id && (prev as any).id === (initialData as any).id) {
+          return prev
+        }
+        return {
           ...initialData,
           dimensions: initialData.dimensions || {}
-        })
-      } else {
-        resetForm()
-      }
+        }
+      })
+    } else {
+      // Tikai sākotnējai atvēršanai
+      resetForm()
     }
-  }, [initialData, open])
+
+    initializedRef.current = true
+  }, [open, initialData])
 
   // Validācija katru reizi, kad product mainās
   useEffect(() => {
@@ -105,7 +123,9 @@ export default function ProductModal({
       meta_title: '',
       meta_description: '',
       weight: 0,
-      dimensions: {}
+      dimensions: {},
+      group_id: '',
+      parentSlug: undefined
     })
     setValidationErrors([])
   }
@@ -149,6 +169,7 @@ export default function ProductModal({
         setProduct(prev => ({ ...prev, [name]: parseFloat(value) || 0 }))
       }
     } else {
+      // handle parentSlug as a normal string field
       setProduct(prev => ({ ...prev, [name]: value }))
     }
     
@@ -213,6 +234,8 @@ export default function ProductModal({
     await withLoading(async () => {
       try {
         const method = isEdit ? 'PUT' : 'POST'
+        // include parentSlug in payload, but only as undefined if empty
+        const payload = { ...product, parentSlug: product.parentSlug || undefined }
         const res = await fetch('/api/products', {
           method,
           headers: { 
@@ -220,7 +243,7 @@ export default function ProductModal({
             // Pievienojam CSRF aizsardzību
             'X-Requested-With': 'XMLHttpRequest'
           },
-          body: JSON.stringify(product),
+          body: JSON.stringify(payload),
         })
 
         const data = await res.json()
@@ -250,8 +273,8 @@ export default function ProductModal({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[95vh] overflow-hidden">
+    <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose(); }}>
+      <DialogContent className="max-w-6xl max-h-[95vh] flex flex-col">
         <DialogHeader className="pb-4 border-b border-gray-200">
           <DialogTitle className="text-2xl font-bold flex items-center">
             {isEdit ? (
@@ -283,7 +306,7 @@ export default function ProductModal({
           </div>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 pr-4">
+        <ScrollArea className="flex-1 pr-4 overflow-y-auto">
           <div className="space-y-8 py-6">
             {/* Produkta detaļas */}
             <ProductDetailsForm
@@ -304,6 +327,44 @@ export default function ProductModal({
                 onCategoryChange={handleCategoryChange}
                 onSubcategoryChange={handleSubcategoryChange}
               />
+            </div>
+
+            {/* Produktu grupēšana */}
+            <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Produkta grupēšana (krāsas varianti)</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="group_id">
+                    Group ID (UUID)
+                  </label>
+                  <input
+                    type="text"
+                    id="group_id"
+                    name="group_id"
+                    value={product.group_id || ''}
+                    onChange={handleChange}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    placeholder="Unikāls ID"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="parentSlug">
+                    Galvenā produkta slug
+                  </label>
+                  <input
+                    type="text"
+                    id="parentSlug"
+                    name="parentSlug"
+                    value={product.parentSlug || ''}
+                    onChange={handleChange}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    placeholder="Ja šis ir galvenais produkts, atstājiet tukšu"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Ja šis ir pirmais šīs grupas produkts, atstājiet tukšu un tas kļūs par galveno.
+                  </p>
+                </div>
+              </div>
             </div>
 
             {/* Izmēri un svars */}

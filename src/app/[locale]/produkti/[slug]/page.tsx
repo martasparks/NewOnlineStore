@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { useParams, notFound } from 'next/navigation'
+import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import Head from 'next/head'
 import Header from '@/components/Header'
@@ -26,7 +27,8 @@ import {
   Ruler,
   Weight,
   Check,
-  AlertCircle
+  AlertCircle,
+  Palette
 } from 'lucide-react'
 
 interface Product {
@@ -55,6 +57,15 @@ interface Product {
     name: string
     slug: string
   }
+  relatedColors?: Array<{
+    id: string
+    name: string
+    slug: string
+    images: string[]
+    price: number
+    sale_price?: number
+    sku?: string
+  }>
   status?: 'active' | 'inactive' | 'draft'
   created_at?: string
   updated_at?: string
@@ -393,6 +404,49 @@ export default function ProductPage() {
                    {product.short_description}
                  </p>
                )}
+
+               {/* Related Colors */}
+              {product.relatedColors && (
+                <div className="mt-4">
+                  {product.relatedColors.length > 0 ? (
+                    <>
+                      <h4 className="text-sm font-semibold text-gray-700 mb-2">
+                        <Palette className="w-4 h-4 mr-1 inline text-gray-500" />
+                        Pieejamās krāsas:
+                      </h4>
+                      <div className="flex space-x-2">
+                        {product.relatedColors.map((color) => (
+                          <a
+                            key={color.id}
+                            href={`/produkti/${color.slug}`}
+                            aria-current={color.slug === product.slug ? 'true' : undefined}
+                            className={`border rounded-lg overflow-hidden w-16 h-16 flex items-center justify-center 
+                              ${color.slug === product.slug ? 'ring-2 ring-blue-500' : 'hover:ring-2 hover:ring-gray-400'}`}
+                            title={`${color.name}${color.sku ? ` (SKU: ${color.sku})` : ''}`}
+                          >
+                            <Image
+                              src={color.images[0] || '/no-image.png'}
+                              alt={`${color.name}${color.sku ? ` (SKU: ${color.sku})` : ''}`}
+                              width={64}
+                              height={64}
+                              className="object-cover w-full h-full"
+                            />
+                          </a>
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <h4 className="text-md font-semibold text-gray-700 mb-4 flex items-center flex-start gap-2">
+                        <Palette className="w-5 h-5 text-red-500" />
+                        <span className="text-md">Pieejamās krāsas:</span>
+                      </h4>
+                      <p className="text-gray-600 text-sm">Šī prece ir pieejama tikai vienā krāsā.</p>
+                    </>
+                  )}
+                </div>
+              )}
+
              </div>
 
              {/* Pricing */}

@@ -3,12 +3,12 @@ import { createClient } from '@lib/supabase/server'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { slug: string } }
+  { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
     const { slug } = await params;
 
-    if (!slug || typeof slug !== 'string') {
+    if (!slug || typeof slug !== 'string' || !/^[a-z0-9-]+$/.test(slug)) {
       return NextResponse.json(
         { error: 'Nepareizs produkta identifikators' }, 
         { status: 400 }
@@ -42,23 +42,41 @@ export async function GET(
         { status: 500 }
       )
     }
+    
+    let relatedColors: Array<{
+      id: string
+      name: string
+      slug: string
+      images: string[]
+      price: number
+      sale_price: number | null
+      sku: string | null
+    }> = []
 
-    // Add view tracking (optional)
-    try {
-      await supabase.rpc('increment_product_views', { 
-        product_id: product.id 
-      })
-    } catch (viewError) {
-      // Non-critical error, don't fail the request
-      console.log('View tracking failed:', viewError)
+    if (product?.group_id) {
+      const { data: siblings, error: siblingsError } = await supabase
+        .from('products')
+        .select('id, name, slug, images, price, sale_price, sku')
+        .eq('group_id', product.group_id)
+        .eq('status', 'active')
+        .neq('id', product.id)
+        .order('featured', { ascending: false })
+        .order('price', { ascending: true })
+
+      if (!siblingsError && siblings) {
+        relatedColors = siblings
+      }
     }
 
-    return NextResponse.json(product, {
-      headers: {
-        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
-        'X-Content-Type-Options': 'nosniff'
+    return NextResponse.json(
+      { ...product, relatedColors }, 
+      {
+        headers: {
+          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+          'X-Content-Type-Options': 'nosniff'
+        }
       }
-    })
+    )
 
   } catch (error) {
     console.error('Product fetch error:', error)

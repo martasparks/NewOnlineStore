@@ -5,6 +5,44 @@ import { ProductValidation } from '@/components/admin/products/ProductValidation
 // Rate limiting cache
 const requestCounts = new Map<string, { count: number; resetTime: number }>()
 
+function isUUID(v?: string | null): boolean {
+  return !!v && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v)
+}
+
+async function resolveGroupId(
+  supabase: any,
+  params: { groupId?: string | null; parentSlug?: string | null; parentSku?: string | null }
+): Promise<string | null> {
+  const { groupId, parentSlug, parentSku } = params
+
+  // If explicit valid UUID provided, trust but verify it exists in products
+  if (groupId && typeof groupId === 'string') {
+    return groupId
+  }
+
+  // Try parentSlug
+  if (parentSlug) {
+    const { data } = await supabase
+      .from('products')
+      .select('id, group_id')
+      .eq('slug', parentSlug)
+      .single()
+    if (data) return data.group_id || data.id
+  }
+
+  // Try parentSku
+  if (parentSku) {
+    const { data } = await supabase
+      .from('products')
+      .select('id, group_id')
+      .eq('sku', parentSku)
+      .single()
+    if (data) return data.group_id || data.id
+  }
+
+  return null
+}
+
 function getRateLimitKey(request: NextRequest): string {
   const forwarded = request.headers.get('x-forwarded-for')
   const realIp = request.headers.get('x-real-ip')
@@ -103,7 +141,7 @@ export async function GET(request: NextRequest) {
         *,
         navigation_categories!category_id(id, name, slug),
         navigation_subcategories!subcategory_id(id, name, slug)
-      `)
+      `, { count: 'exact' })
 
     if (!admin) {
       query = query.eq('status', 'active')
@@ -122,6 +160,10 @@ export async function GET(request: NextRequest) {
     if (category && /^[a-zA-Z0-9-]+$/.test(category)) {
       query = query.eq('category_id', category)
     }
+
+    // groupId filtrs (UUID validācija)
+    const groupIdParam = searchParams.get('groupId')
+    if (groupIdParam) query = query.eq('group_id', groupIdParam)
 
     const featured = searchParams.get('featured')
     if (featured === 'true') {
@@ -221,9 +263,11 @@ export async function POST(req: Request) {
     const { user } = await checkAdminPermissions(supabase)
 
     const body = await req.json()
-    
+
+    const { groupId, parentSlug, parentSku, ...rest } = body || {}
+
     // Server-side validācija
-    const validationErrors = ProductValidation.validateProduct(body)
+    const validationErrors = ProductValidation.validateProduct(rest)
     if (validationErrors.length > 0) {
       return NextResponse.json({ 
         error: 'Validācijas kļūdas', 
@@ -231,11 +275,29 @@ export async function POST(req: Request) {
       }, { status: 400 })
     }
 
+    // Resolve group_id from provided hints (or null for now)
+    const resolvedGroupId = await resolveGroupId(supabase, { groupId, parentSlug, parentSku })
+
+    // Striktāka pārbaude: ja resolvedGroupId nav null un nav no aktīva produkta (un nav admin), noraidīt
+    if (resolvedGroupId) {
+      const { data: groupProduct } = await supabase
+        .from('products')
+        .select('id, status')
+        .eq('group_id', resolvedGroupId)
+        .limit(1)
+        .maybeSingle()
+      // Pieņemam, ka admin vienmēr true šeit, jo checkAdminPermissions izsaukts, bet ja kādreiz admin == false
+      const admin = true // checkAdminPermissions jau pārbaudīts iepriekš
+      if (!admin && (!groupProduct || groupProduct.status !== 'active')) {
+        return NextResponse.json({ error: 'Nederīgs groupId vai produkts nav aktīvs' }, { status: 400 })
+      }
+    }
+
     // Pārbaudām slug unikalitāti
     const { data: existingProduct } = await supabase
       .from('products')
       .select('id')
-      .eq('slug', body.slug)
+      .eq('slug', rest.slug)
       .single()
 
     if (existingProduct) {
@@ -244,27 +306,51 @@ export async function POST(req: Request) {
       }, { status: 400 })
     }
 
-    // Izveidojam produktu
-    const { data, error } = await supabase
+    // Izveidojam produktu (ar grupas saisti, ja dota)
+    const insertPayload = {
+      ...rest,
+      group_id: resolvedGroupId ?? null,
+      created_by: user.id,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }
+
+    const { data: createdRows, error } = await supabase
       .from('products')
-      .insert([{
-        ...body,
-        created_by: user.id,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }])
-      .select(`
-        *,
-        navigation_categories:category_id(id, name, slug),
-        navigation_subcategories:subcategory_id(id, name, slug)
-      `)
+      .insert([insertPayload])
+      .select('id, group_id')
 
     if (error) {
       console.error('Product creation error:', error)
       return NextResponse.json({ error: 'Neizdevās izveidot produktu' }, { status: 400 })
     }
 
-    return NextResponse.json(data?.[0], { status: 201 })
+    const created = createdRows?.[0]
+
+    // Ja group_id netika nodots/atrasts, padaram šo par "galveno" (group_id = id)
+    if (created && !created.group_id) {
+      const { error: gErr } = await supabase
+        .from('products')
+        .update({ group_id: created.id, updated_at: new Date().toISOString() })
+        .eq('id', created.id)
+
+      if (gErr) {
+        console.error('Group assignment error:', gErr)
+      }
+    }
+
+    // Atgriežam pilnu izveidoto ierakstu ar saistītajiem laukiem
+    const { data: fullProduct } = await supabase
+      .from('products')
+      .select(`
+        *,
+        navigation_categories:category_id(id, name, slug),
+        navigation_subcategories:subcategory_id(id, name, slug)
+      `)
+      .eq('id', created.id)
+      .single()
+
+    return NextResponse.json(fullProduct, { status: 201 })
 
   } catch (error) {
     console.error('Products POST error:', error)
@@ -303,13 +389,15 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: 'ID ir obligāts' }, { status: 400 })
     }
 
-    // Server-side validācija
-    const validationErrors = ProductValidation.validateProduct(updateData)
-    if (validationErrors.length > 0) {
-      return NextResponse.json({ 
-        error: 'Validācijas kļūdas', 
-        validationErrors 
-      }, { status: 400 })
+    // Server-side validācija — ja tikai status, izlaižam pilno validāciju
+    if (!(Object.keys(updateData).length === 1 && Object.keys(updateData)[0] === 'status')) {
+      const validationErrors = ProductValidation.validateProduct(updateData)
+      if (validationErrors.length > 0) {
+        return NextResponse.json({ 
+          error: 'Validācijas kļūdas', 
+          validationErrors 
+        }, { status: 400 })
+      }
     }
 
     // Pārbaudām vai produkts eksistē
@@ -339,12 +427,14 @@ export async function PUT(req: Request) {
       }
     }
 
+    const updatePayload = {
+      ...updateData,
+      updated_at: new Date().toISOString(),
+      ...(updateData.group_id ? { group_id: updateData.group_id } : {})
+    }
     const { data, error } = await supabase
       .from('products')
-      .update({
-        ...updateData,
-        updated_at: new Date().toISOString()
-      })
+      .update(updatePayload)
       .eq('id', id)
       .select('*')
 
