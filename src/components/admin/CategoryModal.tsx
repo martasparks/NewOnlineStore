@@ -18,6 +18,18 @@ import { useLoading } from '@hooks/useLoading';
 import { useAlert } from '@lib/store/alert'
 import { Loading } from "../ui/Loading"
 
+interface Category {
+  id?: string
+  name: string
+  slug: string
+  url: string
+  meta_title: string
+  meta_description: string
+  order_index: number
+  is_active: boolean
+  subitems?: Subcategory[]
+}
+
 interface Subcategory {
   id?: string
   name: string
@@ -33,7 +45,7 @@ interface Subcategory {
 interface CategoryModalProps {
   open: boolean
   onClose: () => void
-  initialData?: any
+  initialData?: Category | null
   onSave: () => void
 }
 

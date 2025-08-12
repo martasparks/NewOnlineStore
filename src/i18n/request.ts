@@ -2,7 +2,18 @@ import {getRequestConfig} from 'next-intl/server';
 import {hasLocale} from 'next-intl';
 import {routing} from './routing';
 import { createClient } from '@lib/supabase/server';
- 
+
+// Define proper types for translations
+interface Translation {
+  namespace: string;
+  key: string;
+  value: string;
+}
+interface NestedMessages {
+  [key: string]: string | NestedMessages;
+}
+type Namespaces = Record<string, NestedMessages>;
+
 export default getRequestConfig(async ({requestLocale}) => {
   const requested = await requestLocale;
   const locale = hasLocale(routing.locales, requested)
@@ -19,9 +30,9 @@ export default getRequestConfig(async ({requestLocale}) => {
 
     if (translations && translations.length > 0) {
       // Convert database translations to nested object
-      const namespaces: Record<string, any> = {};
+      const namespaces: Namespaces = {};
       
-      translations.forEach(t => {
+      (translations as Translation[]).forEach(t => {
         const { namespace, key, value } = t;
         if (!namespaces[namespace]) namespaces[namespace] = {};
         
@@ -30,14 +41,14 @@ export default getRequestConfig(async ({requestLocale}) => {
         
         for (let i = 0; i < keyParts.length - 1; i++) {
           if (!current[keyParts[i]]) current[keyParts[i]] = {};
-          current = current[keyParts[i]];
+          current = current[keyParts[i]] as NestedMessages;
         }
         
         current[keyParts[keyParts.length - 1]] = value;
       });
 
       // Merge namespaces properly
-      const result: Record<string, any> = {};
+      const result: NestedMessages = {};
       
       // First add default namespace content to root
       if (namespaces.default) {

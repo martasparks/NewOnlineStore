@@ -22,6 +22,21 @@ interface Slide {
   is_active: boolean
 }
 
+// Pievieno tipu API atbildei
+interface SlideApiResponse {
+  show_text?: boolean
+  id: string
+  title: string
+  subtitle?: string
+  description?: string
+  button_text?: string
+  button_url?: string
+  image_desktop: string
+  image_mobile: string
+  order_index: number
+  is_active: boolean
+}
+
 export default function HomePage() {
   const [slides, setSlides] = useState<Slide[]>([]);
   const { isLoading, withLoading } = useLoading(false);
@@ -35,10 +50,10 @@ export default function HomePage() {
 
       const res = await fetch(`${base}/api/slider`, { cache: 'no-store' });
       if (!res.ok) throw new Error('Failed to fetch slides');
-      const slidesData = await res.json();
-      
+      const slidesData: SlideApiResponse[] = await res.json();
+
       // Pielāgo datus, lai atbilstu Slider prasībām
-      const adaptedSlides = slidesData.map((slide: any) => ({
+      const adaptedSlides: Slide[] = slidesData.map((slide: SlideApiResponse) => ({
         ...slide,
         show_text: slide.show_text ?? true, // Pārveido undefined uz true
         subtitle: slide.subtitle || '',     // Pārveido undefined uz tukšu string
@@ -46,7 +61,7 @@ export default function HomePage() {
         button_text: slide.button_text || '',
         button_url: slide.button_url || ''
       }));
-      
+
       setSlides(adaptedSlides);
     } catch (error) {
       console.error('Error fetching slides:', error);

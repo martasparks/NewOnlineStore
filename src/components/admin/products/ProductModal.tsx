@@ -75,32 +75,6 @@ export default function ProductModal({
     }
   }, [onClose, isLoading])
 
-  useEffect(() => {
-    if (!open) {
-      initializedRef.current = false
-      return
-    }
-    if (initializedRef.current) return
-
-    fetchCategories()
-
-    if (initialData) {
-      setProduct(prev => {
-        if ((prev as any).id && (initialData as any).id && (prev as any).id === (initialData as any).id) {
-          return prev
-        }
-        return {
-          ...initialData,
-          dimensions: initialData.dimensions || {}
-        }
-      })
-    } else {
-      resetForm()
-    }
-
-    initializedRef.current = true
-  }, [open, initialData])
-
   const resetForm = useCallback(() => {
     setProduct({
       name: '',
@@ -126,7 +100,7 @@ export default function ProductModal({
     })
   }, [])
 
-  const fetchCategories = useCallback(async () => {
+    const fetchCategories = useCallback(async () => {
     try {
       const [categoriesRes, subcategoriesRes] = await Promise.all([
         fetch('/api/navigation/categories'),
@@ -147,6 +121,32 @@ export default function ProductModal({
       setAlert('Neizdevās ielādēt kategorijas', 'error')
     }
   }, [setAlert])
+
+useEffect(() => {
+  if (!open) {
+    initializedRef.current = false
+    return
+  }
+  if (initializedRef.current) return
+
+  fetchCategories()
+
+  if (initialData) {
+    setProduct(prev => {
+      if ((prev as Product).id && (initialData as Product).id && (prev as Product).id === (initialData as Product).id) {
+        return prev
+      }
+      return {
+        ...initialData,
+        dimensions: initialData.dimensions || {}
+      }
+    })
+  } else {
+    resetForm()
+  }
+
+  initializedRef.current = true
+}, [open, initialData, fetchCategories, resetForm])
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target
@@ -258,7 +258,7 @@ export default function ProductModal({
 
         console.log('Final payload:', JSON.stringify(payload, null, 2))
 
-        delete (payload as any).groupId
+        delete (payload as Record<string, unknown>).groupId
 
         const res = await fetch('/api/products', {
           method,

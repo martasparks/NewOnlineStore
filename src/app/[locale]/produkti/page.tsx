@@ -59,6 +59,7 @@ export default function ProductsPage() {
     setSortBy(urlSort)
   }, [searchParams])
 
+// Remove sortBy from the dependency array of fetchProducts
 const fetchProducts = useCallback(async (filters?: FilterState, sort?: string) => {
   const isFiltering = !!filters
   
@@ -139,11 +140,11 @@ const fetchProducts = useCallback(async (filters?: FilterState, sort?: string) =
     setLoading(false)
     setFiltering(false)
   }
-}, [searchParams, sortBy])
+}, [searchParams])
 
-  const handleFilterChange = useCallback((filters: FilterState) => {
+const handleFilterChange = useCallback((filters: FilterState) => {
   fetchProducts(filters, sortBy)
-}, [fetchProducts])
+}, [fetchProducts, sortBy])
 
   useEffect(() => {
   const loadProducts = async () => {

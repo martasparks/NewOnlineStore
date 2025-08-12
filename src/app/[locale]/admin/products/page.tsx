@@ -143,29 +143,30 @@ export default function ProductsAdminPage() {
     }
   }
 
-  if (error) {
-    console.error('Products loading error:', error)
-    return (
-      <div className="space-y-8">
-        <div className="bg-red-50 border border-red-200 rounded-xl p-8 text-center">
-          <h2 className="text-xl font-semibold text-red-900 mb-2">Kļūda ielādējot produktus</h2>
-          <p className="text-red-700">Lūdzu atsvaidziniet lapu vai mēģiniet vēlāk.</p>
-          {error && (
-            <p className="text-sm text-red-600 mt-2">
-              Detaļas: {error.message || 'Nezināma kļūda'}
-            </p>
-          )}
-          <Button 
-            onClick={() => mutate()} 
-            className="mt-4"
-            variant="outline"
-          >
-            Mēģināt vēlreiz
-          </Button>
-        </div>
+if (error) {
+  // eslint-disable-next-line no-unused-vars
+  console.error('Products loading error:', error)
+  return (
+    <div className="space-y-8">
+      <div className="bg-red-50 border border-red-200 rounded-xl p-8 text-center">
+        <h2 className="text-xl font-semibold text-red-900 mb-2">Kļūda ielādējot produktus</h2>
+        <p className="text-red-700">Lūdzu atsvaidziniet lapu vai mēģiniet vēlāk.</p>
+        {error && (
+          <p className="text-sm text-red-600 mt-2">
+            Detaļas: {error.message || 'Nezināma kļūda'}
+          </p>
+        )}
+        <Button 
+          onClick={() => mutate()}
+          className="mt-4"
+          variant="outline"
+        >
+          Mēģināt vēlreiz
+        </Button>
       </div>
-    )
-  }
+    </div>
+  )
+}
 
   const products = productsData?.products || []
   

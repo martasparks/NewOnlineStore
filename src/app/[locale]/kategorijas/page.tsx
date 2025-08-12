@@ -1,4 +1,3 @@
-// src/app/[locale]/kategorijas/page.tsx
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -18,7 +17,6 @@ import {
   Tag,
   ChevronRight,
   TrendingUp,
-  Star,
   Eye
 } from 'lucide-react'
 
@@ -45,7 +43,6 @@ interface Subcategory {
 }
 
 export default function CategoriesPage() {
-  const t = useTranslations('Kategorijas')
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')

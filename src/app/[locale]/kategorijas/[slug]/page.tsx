@@ -31,7 +31,6 @@ interface Product {
 }
 
 export default function CategoryPage() {
-  const t = useTranslations('Kategorijas')
   const params = useParams()
   const [category, setCategory] = useState<Category | null>(null)
   const [products, setProducts] = useState<Product[]>([])
@@ -171,9 +170,9 @@ export default function CategoryPage() {
           <p className="text-gray-600 mb-6">
             Produkti tiks pievienoti drīzumā
           </p>
-          <a href="/produkti">
+          <Link href="/produkti">
             <Button>Skatīt visus produktus</Button>
-          </a>
+          </Link>
         </div>
        )}
      </div>

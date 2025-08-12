@@ -6,32 +6,36 @@ import Link from "next/link"
 import { Loading } from "@/components/ui/Loading"
 import { useLoading } from "@hooks/useLoading"
 
-  type Subcategory = {
-    id: string
-    name: string
-    slug: string
-    url: string
-    icon: string
-    meta_title: string
-    meta_description: string
-    order_index: number
-    is_active: boolean
-    category_id: string
-  }
-  
-  type Category = {
-    id: string
-    name: string
-    slug: string
-    url: string
-    meta_title: string
-    meta_description: string
-    order_index: number
-    is_active: boolean
-    created_at: string
-    updated_at: string
-    subitems: Subcategory[]
-  }
+type Subcategory = {
+  id: string
+  name: string
+  slug: string
+  url: string
+  icon: string
+  meta_title: string
+  meta_description: string
+  order_index: number
+  is_active: boolean
+  category_id: string
+}
+
+type Category = {
+  id: string
+  name: string
+  slug: string
+  url: string
+  meta_title: string
+  meta_description: string
+  order_index: number
+  is_active: boolean
+  created_at: string
+  updated_at: string
+  subitems: Subcategory[]
+}
+
+// Add API response types
+type CategoryApiResponse = Omit<Category, 'subitems'>
+type SubcategoryApiResponse = Subcategory
 
 export default function MainNavigation() {
   const [categories, setCategories] = useState<Category[]>([])
@@ -42,14 +46,14 @@ export default function MainNavigation() {
     const fetchData = async () => {
       withLoading(async () => {
         const res = await fetch('/api/navigation/categories')
-        const cats = await res.json()
+        const cats: CategoryApiResponse[] = await res.json()
 
         const subRes = await fetch('/api/navigation/subcategories')
-        const subs = await subRes.json()
+        const subs: SubcategoryApiResponse[] = await subRes.json()
 
-        const combined = cats.map((cat: any) => ({
+        const combined: Category[] = cats.map((cat: CategoryApiResponse) => ({
           ...cat,
-          subitems: subs.filter((s: any) => s.category_id === cat.id)
+          subitems: subs.filter((s: SubcategoryApiResponse) => s.category_id === cat.id)
         }))
 
         setCategories(combined)

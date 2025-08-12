@@ -3,6 +3,12 @@ import { createClient } from '@lib/supabase/server'
 import { ProductValidation } from '@/components/admin/products/ProductValidation'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
+interface User {
+  id: string
+  email?: string
+  user_metadata?: Record<string, unknown>
+}
+
 const requestCounts = new Map<string, { count: number; resetTime: number }>()
 
 async function resolveGroupId(
@@ -83,7 +89,7 @@ function validateCSRF(request: NextRequest): boolean {
   return true
 }
 
-async function checkAdminPermissions(supabase: SupabaseClient): Promise<{ user: any; isAdmin: boolean }> {
+async function checkAdminPermissions(supabase: SupabaseClient): Promise<{ user: User; isAdmin: boolean }> {
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   
   if (authError || !user) {
@@ -100,7 +106,7 @@ async function checkAdminPermissions(supabase: SupabaseClient): Promise<{ user: 
     throw new Error('Nav admin tiesību')
   }
 
-  return { user, isAdmin: true }
+  return { user: user as User, isAdmin: true }
 }
 
 export async function GET(request: NextRequest) {
@@ -363,21 +369,16 @@ export async function PUT(req: Request) {
     await checkAdminPermissions(supabase)
 
     const body = await req.json()
-    const { id, navigation_categories: _navigation_categories, navigation_subcategories: _navigation_subcategories, created_at: _created_at, created_by: _created_by, ...updateData } = body
+    const { id } = body
 
     if (!id || typeof id !== 'string') {
       return NextResponse.json({ error: 'ID ir obligāts' }, { status: 400 })
     }
 
-    if (!(Object.keys(updateData).length === 1 && Object.keys(updateData)[0] === 'status')) {
-      const validationErrors = ProductValidation.validateProduct(updateData)
-      if (validationErrors.length > 0) {
-        return NextResponse.json({ 
-          error: 'Validācijas kļūdas', 
-          validationErrors 
-        }, { status: 400 })
-      }
-    }
+    const excludedFields = ['id', 'navigation_categories', 'navigation_subcategories', 'created_at', 'created_by']
+    const updateData = Object.fromEntries(
+      Object.entries(body).filter(([key]) => !excludedFields.includes(key))
+    )
 
     const { data: existingProduct } = await supabase
       .from('products')

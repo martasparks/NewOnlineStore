@@ -424,9 +424,11 @@ export default function ProfilePage() {
                             .eq('id', user.id)
                           if (error) throw error
                           setAlert('Paziņojumu iestatījumi saglabāti', 'success')
-                        } catch (error) { // Noņem 'e', pievieno 'error'
+                        } catch (error) {
+                          console.error('Error updating notifications:', error) // Now using the error
                           setProfile(prev => (prev ? { ...prev, notifications_enabled: !checked } : prev))
-                          setAlert('Neizdevās saglabāt paziņojumu iestatījumus', 'error')
+                          const errorMessage = error instanceof Error ? error.message : 'Neizdevās saglabāt paziņojumu iestatījumus'
+                          setAlert(errorMessage, 'error')
                         }
                       }}
                   />
