@@ -129,7 +129,6 @@ export default function ProductPage() {
         
         if (response.status === 404) {
           notFound()
-          return
         }
         
         if (!response.ok) {
@@ -247,7 +246,6 @@ export default function ProductPage() {
 
   if (!product) {
     notFound()
-    return null
   }
 
   return (
@@ -376,7 +374,7 @@ export default function ProductPage() {
                      ) : isLowStock ? (
                        <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
                          <Package className="w-3 h-3 mr-1" />
-                         Tikai {product.stock_quantity} gab.
+                         Palikuši tikai {product.stock_quantity} gab.
                        </Badge>
                      ) : (
                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
@@ -577,40 +575,51 @@ export default function ProductPage() {
                )}
              </div>
 
-             {/* Product Features */}
-             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-               <div className="flex items-center space-x-3 p-4 bg-blue-50 rounded-lg">
-                 <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
-                   <Truck className="w-5 h-5 text-white" />
-                 </div>
-                 <div>
-                   <p className="font-semibold text-blue-900">Bezmaksas piegāde</p>
-                   <p className="text-sm text-blue-700">Pasūtījumiem virs €50</p>
-                 </div>
-               </div>
-               
-               <div className="flex items-center space-x-3 p-4 bg-green-50 rounded-lg">
-                 <div className="w-10 h-10 bg-green-600 rounded-full flex items-center justify-center">
-                   <Shield className="w-5 h-5 text-white" />
-                 </div>
-                 <div>
-                   <p className="font-semibold text-green-900">2 gadu garantija</p>
-                   <p className="text-sm text-green-700">Pilna kvalitātes garantija</p>
-                 </div>
-               </div>
-               
-               <div className="flex items-center space-x-3 p-4 bg-purple-50 rounded-lg">
-                 <div className="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center">
-                   <RotateCcw className="w-5 h-5 text-white" />
-                 </div>
-                 <div>
-                   <p className="font-semibold text-purple-900">30 dienu atgriešana</p>
-                   <p className="text-sm text-purple-700">Bez jautājumiem</p>
-                 </div>
-               </div>
-             </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {[
+                  {
+                    icon: <Truck className="w-6 h-6 text-white" />,
+                    title: "Bezmaksas piegāde",
+                    subtitle: "Pasūtījumiem virs €50",
+                    bg: "bg-blue-50",
+                    iconBg: "bg-blue-600",
+                    titleColor: "text-blue-900",
+                    subtitleColor: "text-blue-700",
+                  },
+                  {
+                    icon: <Shield className="w-6 h-6 text-white" />,
+                    title: "2 gadu garantija",
+                    subtitle: "Pilna kvalitātes garantija",
+                    bg: "bg-green-50",
+                    iconBg: "bg-green-600",
+                    titleColor: "text-green-900",
+                    subtitleColor: "text-green-700",
+                  },
+                  {
+                    icon: <RotateCcw className="w-6 h-6 text-white" />,
+                    title: "30 dienu atgriešana",
+                    subtitle: "Bez jautājumiem",
+                    bg: "bg-purple-50",
+                    iconBg: "bg-purple-600",
+                    titleColor: "text-purple-900",
+                    subtitleColor: "text-purple-700",
+                  },
+                ].map((item, index) => (
+                  <div
+                    key={index}
+                    className={`flex flex-col items-center text-center p-6 rounded-xl shadow-sm ${item.bg}`}
+                  >
+                    <div
+                      className={`w-14 h-14 ${item.iconBg} rounded-full flex items-center justify-center mb-3`}
+                    >
+                      {item.icon}
+                    </div>
+                    <p className={`font-semibold text-lg ${item.titleColor}`}>{item.title}</p>
+                    <p className={`text-sm ${item.subtitleColor}`}>{item.subtitle}</p>
+                  </div>
+                ))}
+              </div>
 
-             {/* Product Specifications */}
              {(product.weight || product.dimensions) && (
                <div className="bg-white border border-gray-200 rounded-xl p-6">
                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
@@ -651,19 +660,17 @@ export default function ProductPage() {
                    )}
                  </div>
 
-                 {/* Volume calculation */}
-                 {product.dimensions?.length && product.dimensions?.width && product.dimensions?.height && (
-                   <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                     <p className="text-sm text-blue-700">
-                       <Package className="w-4 h-4 inline mr-1" />
-                       Tilpums: {((product.dimensions.length * product.dimensions.width * product.dimensions.height) / 1000000).toFixed(3)} m³
-                     </p>
-                   </div>
-                 )}
+                  {product.dimensions?.length && product.dimensions?.width && (
+                    <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                      <p className="text-sm text-blue-700">
+                        <Package className="w-4 h-4 inline mr-1" />
+                        Mēbele aizņems (aptuveni): <strong>{((product.dimensions.length * product.dimensions.width) / 10000).toFixed(2)} m²</strong> no Jūsu telpas
+                      </p>
+                    </div>
+                  )}
                </div>
              )}
 
-             {/* Product Description */}
              {product.description && (
                <div className="bg-white border border-gray-200 rounded-xl p-6">
                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Apraksts</h3>
