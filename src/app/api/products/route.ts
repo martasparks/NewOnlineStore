@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@lib/supabase/server'
 import { ProductValidation } from '@/components/admin/products/ProductValidation'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 const requestCounts = new Map<string, { count: number; resetTime: number }>()
 
 async function resolveGroupId(
-  supabase: any,
+  supabase: SupabaseClient,
   params: { groupId?: string | null; parentSlug?: string | null; parentSku?: string | null }
 ): Promise<string | null> {
   const { groupId, parentSlug, parentSku } = params
@@ -82,7 +83,7 @@ function validateCSRF(request: NextRequest): boolean {
   return true
 }
 
-async function checkAdminPermissions(supabase: any): Promise<{ user: any; isAdmin: boolean }> {
+async function checkAdminPermissions(supabase: SupabaseClient): Promise<{ user: any; isAdmin: boolean }> {
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   
   if (authError || !user) {
@@ -362,7 +363,7 @@ export async function PUT(req: Request) {
     await checkAdminPermissions(supabase)
 
     const body = await req.json()
-    const { id, navigation_categories, navigation_subcategories, created_at, created_by, ...updateData } = body
+    const { id, navigation_categories: _navigation_categories, navigation_subcategories: _navigation_subcategories, created_at: _created_at, created_by: _created_by, ...updateData } = body
 
     if (!id || typeof id !== 'string') {
       return NextResponse.json({ error: 'ID ir obligāts' }, { status: 400 })

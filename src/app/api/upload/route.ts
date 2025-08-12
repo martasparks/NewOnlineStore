@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { uploadToS3 } from "../../../../lib/s3Upload";
-import { createClient } from "../../../../lib/supabase/server";
+import { uploadToS3 } from "@lib/s3Upload";
+import { createClient } from "@lib/supabase/server";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const ALLOWED_FILE_TYPES = [
@@ -138,19 +138,19 @@ export async function POST(req: NextRequest) {
    }
 
    let formData: FormData;
-   try {
-     formData = await Promise.race([
-       req.formData(),
-       new Promise<never>((_, reject) => 
-         setTimeout(() => reject(new Error('Timeout')), 30000)
-       )
-     ]);
-   } catch (error) {
-     return NextResponse.json(
-       { error: "Neizdevās nolasīt datus" }, 
-       { status: 400 }
-     );
-   }
+try {
+  formData = await Promise.race([
+    req.formData(),
+    new Promise<never>((_, reject) => 
+      setTimeout(() => reject(new Error('Timeout')), 30000)
+    )
+  ]);
+} catch (_error) {
+  return NextResponse.json(
+    { error: "Neizdevās nolasīt datus" }, 
+    { status: 400 }
+  );
+}
 
    const file = formData.get("file") as File;
    const folder = formData.get("folder") as string;
@@ -191,15 +191,15 @@ export async function POST(req: NextRequest) {
    }
    
    let buffer: Buffer;
-   try {
-     const arrayBuffer = await file.arrayBuffer();
-     buffer = Buffer.from(arrayBuffer);
-   } catch (error) {
-     return NextResponse.json(
-       { error: "Neizdevās nolasīt failu" }, 
-       { status: 400 }
-     );
-   }
+try {
+  const arrayBuffer = await file.arrayBuffer();
+  buffer = Buffer.from(arrayBuffer);
+} catch (_error) {
+  return NextResponse.json(
+    { error: "Neizdevās nolasīt failu" }, 
+    { status: 400 }
+  );
+}
 
    const isValidImage = isValidImageBuffer(buffer);
    if (!isValidImage) {
@@ -233,14 +233,14 @@ export async function POST(req: NextRequest) {
      }
    }
 
-   if (!isDevelopment) {
-     try {
-       const supabase = await createClient();
-       const { data: { user } } = await supabase.auth.getUser();
-     } catch (logError) {
-       console.error('Logging failed:', logError);
-     }
-   }
+if (!isDevelopment) {
+  try {
+    const supabase = await createClient();
+    const { data: { user: _user } } = await supabase.auth.getUser();
+  } catch (logError) {
+    console.error('Logging failed:', logError);
+  }
+}
 
    return NextResponse.json({ 
      url

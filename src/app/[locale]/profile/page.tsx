@@ -129,13 +129,13 @@ export default function ProfilePage() {
         .eq('id', user.id)
         .single()
 
-      if (error) {
-        if ((error as any).code === 'PGRST116') {
-          await createProfile()
-        } else {
-          console.error('Error fetching profile:', error)
-          setAlert('Neizdevās ielādēt profilu', 'error')
-        }
+          if (error) {
+            if (error.code === 'PGRST116') {
+              await createProfile()
+            } else {
+              console.error('Error fetching profile:', error)
+              setAlert('Neizdevās ielādēt profilu', 'error')
+            }
       } else {
         const profileWithMetadata = {
           ...data,
@@ -411,24 +411,24 @@ export default function ProfilePage() {
                   </div>
                   <Switch
                     checked={profile?.notifications_enabled ?? true}
-                    onCheckedChange={async (checked) => {
-                      setProfile(prev => (prev ? { ...prev, notifications_enabled: checked } : prev))
-                      if (!user) return
-                      try {
-                        const { error } = await supabase
-                          .from('profiles')
-                          .update({
-                            notifications_enabled: checked,
-                            updated_at: new Date().toISOString()
-                          })
-                          .eq('id', user.id)
-                        if (error) throw error
-                        setAlert('Paziņojumu iestatījumi saglabāti', 'success')
-                      } catch (e) {
-                        setProfile(prev => (prev ? { ...prev, notifications_enabled: !checked } : prev))
-                        setAlert('Neizdevās saglabāt paziņojumu iestatījumus', 'error')
-                      }
-                    }}
+                      onCheckedChange={async (checked) => {
+                        setProfile(prev => (prev ? { ...prev, notifications_enabled: checked } : prev))
+                        if (!user) return
+                        try {
+                          const { error } = await supabase
+                            .from('profiles')
+                            .update({
+                              notifications_enabled: checked,
+                              updated_at: new Date().toISOString()
+                            })
+                            .eq('id', user.id)
+                          if (error) throw error
+                          setAlert('Paziņojumu iestatījumi saglabāti', 'success')
+                        } catch (error) { // Noņem 'e', pievieno 'error'
+                          setProfile(prev => (prev ? { ...prev, notifications_enabled: !checked } : prev))
+                          setAlert('Neizdevās saglabāt paziņojumu iestatījumus', 'error')
+                        }
+                      }}
                   />
                 </div>
               </div>

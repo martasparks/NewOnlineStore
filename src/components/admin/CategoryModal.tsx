@@ -15,7 +15,7 @@ import { Switch } from '@/components/ui/switch'
 import { Pencil, Trash, Plus, Save, FolderPlus, Tags, Link2, Hash, FileText } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useLoading } from '@hooks/useLoading';
-import { useAlert } from '../../../lib/store/alert'
+import { useAlert } from '@lib/store/alert'
 import { Loading } from "../ui/Loading"
 
 interface Subcategory {

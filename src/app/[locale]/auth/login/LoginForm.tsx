@@ -6,7 +6,6 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/contexts/AuthContext"
 import { Eye, EyeOff, Mail, Lock } from "lucide-react"
-//import { Loading } from "@/components/ui/Loading"
 import HCaptcha from "@hcaptcha/react-hcaptcha"
 
 const SITE_KEY = process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY || ""
@@ -45,8 +44,8 @@ export default function LoginForm() {
         }
         setCaptchaToken(null)
       }
-    } catch (err: any) {
-      setLoginError(err?.message || "Neizdevās pieteikties. Mēģiniet vēlreiz.")
+    } catch (err: unknown) {
+      setLoginError(err instanceof Error ? err.message : "Neizdevās pieteikties. Mēģiniet vēlreiz.")
       if (captchaRef.current) {
         captchaRef.current.resetCaptcha()
       }
@@ -65,9 +64,9 @@ export default function LoginForm() {
       } else {
         setLoginError(result.error)
       }
-    } catch (err: any) {
-      setLoginError(err?.message || "Neizdevās pieteikties ar Google.")
-    }
+      } catch (err: unknown) {
+        setLoginError(err instanceof Error ? err.message : "Neizdevās pieteikties ar Google.")
+      }
     setSocialLoading(false)
   }
 
@@ -81,15 +80,14 @@ export default function LoginForm() {
       } else {
         setLoginError(result.error)
       }
-    } catch (err: any) {
-      setLoginError(err?.message || "Neizdevās pieteikties ar Facebook.")
-    }
+      } catch (err: unknown) {
+        setLoginError(err instanceof Error ? err.message : "Neizdevās pieteikties ar Facebook.")
+      }
     setSocialLoading(false)
   }
 
   return (
     <>
-      {/* Social Login Buttons */}
       <div className="space-y-3 mb-6">
         <Button
           type="button"
@@ -129,7 +127,6 @@ export default function LoginForm() {
         </Button>
       </div>
 
-      {/* Divider */}
       <div className="relative mb-6">
         <div className="absolute inset-0 flex items-center">
           <span className="w-full border-t border-gray-300" />
@@ -139,7 +136,6 @@ export default function LoginForm() {
         </div>
       </div>
 
-      {/* Email/Password Form */}
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
           <label htmlFor="email" className="block text-sm font-medium text-gray-700">
@@ -193,7 +189,6 @@ export default function LoginForm() {
           </Link>
         </div>
 
-        {/* hCaptcha */}
         <div className="flex justify-center">
           <HCaptcha
             sitekey={SITE_KEY}
@@ -204,14 +199,12 @@ export default function LoginForm() {
           />
         </div>
 
-        {/* Error Message */}
         {(loginError || error) && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
             {loginError || error}
           </div>
         )}
 
-        {/* Submit Button */}
         <Button
           type="submit"
           disabled={loading || socialLoading}
@@ -227,7 +220,6 @@ export default function LoginForm() {
           )}
         </Button>
 
-        {/* Register Link */}
         <div className="text-center text-sm text-gray-600">
           Vai vēl neesi reģistrējies?{" "}
           <Link href="/auth/register" className="text-blue-600 hover:text-blue-700 font-medium transition-colors">

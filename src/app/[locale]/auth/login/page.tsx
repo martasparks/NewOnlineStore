@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@lib/supabase/server"
-import { Mail, LogIn } from 'lucide-react'
+import { LogIn } from 'lucide-react'
 import LoginForm from "./LoginForm"
 
 export default async function LoginPage() {

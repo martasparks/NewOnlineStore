@@ -3,10 +3,8 @@
 import Link from 'next/link'
 import { Shield, Home, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useAuth } from '@/contexts/AuthContext'
 
 export default function UnauthorizedPage() {
- const { signOut } = useAuth()
 
  return (
    <div className="min-h-screen bg-gradient-to-br from-red-50 via-orange-50 to-yellow-50 flex items-center justify-center p-4 relative overflow-hidden">

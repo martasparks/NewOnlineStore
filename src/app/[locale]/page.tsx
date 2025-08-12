@@ -1,38 +1,62 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Header from '@/components/Header';
 import MainNavigation from '@/components/MainNavigation';
 import Slider from '@/components/Slider';
 import { Loading } from '@/components/ui/Loading';
 import { useLoading } from '@hooks/useLoading';
 
+// Izmanto Slider komponenta tipu
+interface Slide {
+  show_text: boolean
+  id: string
+  title: string
+  subtitle: string
+  description: string
+  button_text: string
+  button_url: string
+  image_desktop: string
+  image_mobile: string
+  order_index: number
+  is_active: boolean
+}
+
 export default function HomePage() {
-  const [slides, setSlides] = useState<any[]>([]);
+  const [slides, setSlides] = useState<Slide[]>([]);
   const { isLoading, withLoading } = useLoading(false);
 
-  const getSlides = async () => {
-    const base =
-      process.env.NODE_ENV === 'production'
-        ? 'https://yourdomain.com'
-        : 'http://localhost:3000';
+  const fetchSlides = useCallback(async () => {
+    try {
+      const base =
+        process.env.NODE_ENV === 'production'
+          ? 'https://yourdomain.com'
+          : 'http://localhost:3000';
 
-    const res = await fetch(`${base}/api/slider`, { cache: 'no-store' });
-    if (!res.ok) throw new Error('Failed to fetch slides');
-    return res.json();
-  };
+      const res = await fetch(`${base}/api/slider`, { cache: 'no-store' });
+      if (!res.ok) throw new Error('Failed to fetch slides');
+      const slidesData = await res.json();
+      
+      // Pielāgo datus, lai atbilstu Slider prasībām
+      const adaptedSlides = slidesData.map((slide: any) => ({
+        ...slide,
+        show_text: slide.show_text ?? true, // Pārveido undefined uz true
+        subtitle: slide.subtitle || '',     // Pārveido undefined uz tukšu string
+        description: slide.description || '',
+        button_text: slide.button_text || '',
+        button_url: slide.button_url || ''
+      }));
+      
+      setSlides(adaptedSlides);
+    } catch (error) {
+      console.error('Error fetching slides:', error);
+      setSlides([]);
+    }
+  }, []);
 
   useEffect(() => {
-    withLoading(async () => {
-      try {
-        const slidesData = await getSlides();
-        setSlides(slidesData);
-      } catch (error) {
-        console.error('Error fetching slides:', error);
-        setSlides([]);
-      }
-    });
-  }, []);
+    withLoading(fetchSlides);
+  }, [withLoading, fetchSlides]);
 
   if (isLoading) {
     return (

@@ -18,7 +18,6 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
-  // Svarīgi: sākam ar false, lai nebūtu "mūžīgās ielādes"
   const { isLoading, withLoading } = useLoading(false)
 
   const [socialLoading, setSocialLoading] = useState<string | null>(null)
@@ -26,7 +25,6 @@ export default function RegisterPage() {
   const [captchaToken, setCaptchaToken] = useState<string | null>(null)
   const captchaRef = useRef<HCaptcha | null>(null)
 
-  // PIEZĪME: signUp jāatbalsta captchaToken trešais parametrs AuthContext iekšā
   const { signUp, signInWithGoogle, signInWithFacebook, error } = useAuth()
   const router = useRouter()
 
@@ -89,7 +87,6 @@ export default function RegisterPage() {
     setSocialLoading('facebook')
     try {
       await signInWithFacebook()
-      // router.replace('/auth/verify-email') // ja nav redirect plūsmas
     } catch (e) {
       console.error('Facebook sign-in failed:', e)
     } finally {
@@ -244,19 +241,18 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            {/* hCaptcha widgets */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Drošības apstiprinājums
               </label>
-              <HCaptcha
-                ref={captchaRef as any}
-                sitekey={HCAPTCHA_SITE_KEY}
-                onVerify={(token) => setCaptchaToken(token)}
-                onExpire={() => setCaptchaToken(null)}
-                onError={() => setCaptchaToken(null)}
-                theme="light"
-              />
+                <HCaptcha
+                  ref={captchaRef}
+                  sitekey={HCAPTCHA_SITE_KEY}
+                  onVerify={(token) => setCaptchaToken(token)}
+                  onExpire={() => setCaptchaToken(null)}
+                  onError={() => setCaptchaToken(null)}
+                  theme="light"
+                />
               <p className="text-xs text-gray-500 mt-2">
                 Lūdzu, izpildiet hCaptcha, lai turpinātu reģistrāciju.
               </p>

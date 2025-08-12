@@ -3,13 +3,8 @@
 import React, { useState, useEffect } from "react"
 import { ChevronDown } from "lucide-react"
 import Link from "next/link"
-import { Loading } from "../components/ui/Loading"
-import { useLoading } from "../../hooks/useLoading"
-
-export default function MainNavigation() {
-  const [categories, setCategories] = useState<Category[]>([])
-  const [hovered, setHovered] = useState<string | null>(null)
-  const { isLoading, withLoading } = useLoading(false)
+import { Loading } from "@/components/ui/Loading"
+import { useLoading } from "@hooks/useLoading"
 
   type Subcategory = {
     id: string
@@ -38,6 +33,11 @@ export default function MainNavigation() {
     subitems: Subcategory[]
   }
 
+export default function MainNavigation() {
+  const [categories, setCategories] = useState<Category[]>([])
+  const [hovered, setHovered] = useState<string | null>(null)
+  const { isLoading, withLoading } = useLoading(false)
+
   useEffect(() => {
     const fetchData = async () => {
       withLoading(async () => {
@@ -57,7 +57,7 @@ export default function MainNavigation() {
     }
 
     fetchData()
-  }, [])
+  }, [withLoading])
 
   if (isLoading) {
     return (

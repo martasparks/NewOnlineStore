@@ -8,7 +8,7 @@ import MainNavigation from '@/components/MainNavigation'
 import ProductCard from '@/components/products/ProductCard'
 import { Loading } from '@/components/ui/Loading'
 import { Button } from '@/components/ui/button'
-import { ChevronRight, Grid, List, Package } from 'lucide-react'
+import { ChevronRight, Grid, List } from 'lucide-react'
 import Link from 'next/link'
 import { ProductPlaceholder } from '@/components/ui/ProductPlaceholder'
 
@@ -42,7 +42,6 @@ export default function CategoryPage() {
   useEffect(() => {
     const fetchCategoryData = async () => {
       try {
-        // Fetch category info
         const categoryRes = await fetch(`/api/navigation/categories`)
         const categories = await categoryRes.json()
         const foundCategory = categories.find((cat: Category) => cat.slug === params.slug)
@@ -53,7 +52,6 @@ export default function CategoryPage() {
         
         setCategory(foundCategory)
 
-        // Fetch products for this category
         const productsRes = await fetch(`/api/products?category=${foundCategory.id}&sort=${sortBy}`)
         const productsData = await productsRes.json()
         setProducts(productsData.products || [])
@@ -91,16 +89,15 @@ export default function CategoryPage() {
       <MainNavigation />
       
       <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Breadcrumb */}
+
         <nav className="flex items-center space-x-2 text-sm text-gray-500 mb-6">
-          <Link href="/" className="hover:text-gray-700 transition-colors">{t('cat.page.breadcrumb1')}</Link>
+          <Link href="/" className="hover:text-gray-700 transition-colors">Sākums</Link>
           <ChevronRight className="w-4 h-4" />
-          <Link href="/kategorijas" className="hover:text-gray-700 transition-colors">{t('cat.page.breadcrumb2')}</Link>
+          <Link href="/kategorijas" className="hover:text-gray-700 transition-colors">Visas kategorijas</Link>
           <ChevronRight className="w-4 h-4" />
           <span className="text-gray-900 font-medium">{category.name}</span>
         </nav>
 
-        {/* Category Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
             {category.name}
@@ -112,7 +109,6 @@ export default function CategoryPage() {
          )}
        </div>
 
-       {/* Controls */}
        <div className="flex items-center justify-between mb-6 bg-white rounded-lg p-4 shadow-sm">
          <div className="flex items-center space-x-4">
            <span className="text-sm text-gray-600">
@@ -149,7 +145,6 @@ export default function CategoryPage() {
          </div>
        </div>
 
-       {/* Products Grid */}
        {products.length > 0 ? (
          <div className={`
            ${viewMode === 'grid' 

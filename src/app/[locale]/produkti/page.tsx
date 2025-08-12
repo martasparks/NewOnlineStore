@@ -141,16 +141,52 @@ const fetchProducts = useCallback(async (filters?: FilterState, sort?: string) =
   }
 }, [searchParams, sortBy])
 
-
-
-  // Handle filter changes without page refresh
   const handleFilterChange = useCallback((filters: FilterState) => {
-    fetchProducts(filters, sortBy)
-  }, [fetchProducts, sortBy])
+  fetchProducts(filters, sortBy)
+}, [fetchProducts])
 
   useEffect(() => {
-    fetchProducts()
-  }, [searchParams])
+  const loadProducts = async () => {
+    setLoading(true)
+    try {
+      const params = new URLSearchParams()
+      const page = searchParams.get('page') || '1'
+      const category = searchParams.get('category')
+      const search = searchParams.get('search')
+      const categories = searchParams.get('categories')
+      const minPrice = searchParams.get('minPrice')
+      const maxPrice = searchParams.get('maxPrice')
+      const inStock = searchParams.get('inStock')
+      const featured = searchParams.get('featured')
+      const urlSort = searchParams.get('sort') || 'name'
+      
+      params.set('page', page)
+      params.set('limit', '12')
+      if (category) params.set('category', category)
+      if (search) params.set('search', search)
+      if (categories) params.set('categories', categories)
+      if (minPrice) params.set('minPrice', minPrice)
+      if (maxPrice) params.set('maxPrice', maxPrice)
+      if (inStock) params.set('inStock', inStock)
+      if (featured) params.set('featured', featured)
+      params.set('sort', urlSort)
+
+      const response = await fetch(`/api/products?${params}`)
+      const data = await response.json()
+
+      if (response.ok) {
+        setProducts(data.products)
+        setPagination(data.pagination)
+      }
+    } catch (error) {
+      console.error('Error fetching products:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  loadProducts()
+}, [searchParams])
 
   if (loading) {
     return (

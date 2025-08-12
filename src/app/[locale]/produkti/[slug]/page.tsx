@@ -3,7 +3,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useParams, notFound } from 'next/navigation'
 import Image from 'next/image'
-import { useTranslations } from 'next-intl'
 import Head from 'next/head'
 import Header from '@/components/Header'
 import MainNavigation from '@/components/MainNavigation'
@@ -30,6 +29,7 @@ import {
   AlertCircle,
   Palette
 } from 'lucide-react'
+import Link from 'next/link'
 
 interface Product {
   id: string
@@ -110,7 +110,6 @@ export default function ProductPage() {
     [product?.manage_stock, product?.stock_quantity]
   )
 
-  // SEO Meta data
   const metaTitle = product?.meta_title || `${product?.name} | Marta's Mēbeles`
   const metaDescription = product?.meta_description || product?.short_description || product?.description?.substring(0, 160)
 
@@ -158,13 +157,8 @@ export default function ProductPage() {
     
     setAddingToCart(true)
     try {
-      // TODO: Implement cart API call
-      await new Promise(resolve => setTimeout(resolve, 1000)) // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000))
       
-      // Success feedback
-      console.log(`Added ${quantity}x ${product.name} to cart`)
-      
-      // Reset quantity after successful add
       setQuantity(1)
     } catch (error) {
       console.error('Error adding to cart:', error)
@@ -178,10 +172,8 @@ export default function ProductPage() {
     
     try {
       setIsWishlisted(!isWishlisted)
-      // TODO: Implement wishlist API call
       console.log(`${isWishlisted ? 'Removed from' : 'Added to'} wishlist: ${product.name}`)
     } catch (error) {
-      // Revert on error
       setIsWishlisted(isWishlisted)
       console.error('Error updating wishlist:', error)
     }
@@ -201,10 +193,8 @@ export default function ProductPage() {
         console.log('Error sharing:', error)
       }
     } else {
-      // Fallback: copy to clipboard
       try {
         await navigator.clipboard.writeText(window.location.href)
-        // TODO: Show toast notification
         console.log('Link copied to clipboard')
       } catch (error) {
         console.error('Error copying to clipboard:', error)
@@ -261,7 +251,6 @@ export default function ProductPage() {
         <meta property="product:price:currency" content="EUR" />
         <link rel="canonical" href={`${process.env.NEXT_PUBLIC_SITE_URL}/produkti/${product.slug}`} />
         
-        {/* JSON-LD Structured Data */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -301,20 +290,19 @@ export default function ProductPage() {
        <MainNavigation />
        
        <div className="max-w-7xl mx-auto px-4 py-8">
-         {/* Breadcrumbs */}
          <nav className="flex items-center space-x-2 text-sm text-gray-500 mb-8" aria-label="Breadcrumb">
-           <a href="/" className="hover:text-gray-700 transition-colors">Sākums</a>
+           <Link href="/" className="hover:text-gray-700 transition-colors">Sākums</Link>
            <ChevronRight className="w-4 h-4" />
-           <a href="/produkti" className="hover:text-gray-700 transition-colors">Produkti</a>
+           <Link href="/produkti" className="hover:text-gray-700 transition-colors">Produkti</Link>
            {product.navigation_categories && (
              <>
                <ChevronRight className="w-4 h-4" />
-               <a 
+               <Link 
                  href={`/kategorijas/${product.navigation_categories.slug}`} 
                  className="hover:text-gray-700 transition-colors"
                >
                  {product.navigation_categories.name}
-               </a>
+               </Link>
              </>
            )}
            <ChevronRight className="w-4 h-4" />
@@ -396,14 +384,12 @@ export default function ProductPage() {
                  </Button>
                </div>
 
-               {/* Short Description */}
                {product.short_description && (
                  <p className="text-lg text-gray-700 leading-relaxed">
                    {product.short_description}
                  </p>
                )}
 
-               {/* Related Colors */}
               {product.relatedColors && (
                 <div className="mt-4">
                   {product.relatedColors.length > 0 ? (
@@ -414,7 +400,7 @@ export default function ProductPage() {
                       </h4>
                       <div className="flex space-x-2">
                         {product.relatedColors.map((color) => (
-                          <a
+                          <Link
                             key={color.id}
                             href={`/produkti/${color.slug}`}
                             aria-current={color.slug === product.slug ? 'true' : undefined}
@@ -429,7 +415,7 @@ export default function ProductPage() {
                               height={64}
                               className="object-cover w-full h-full"
                             />
-                          </a>
+                          </Link>
                         ))}
                       </div>
                     </>
@@ -447,7 +433,6 @@ export default function ProductPage() {
 
              </div>
 
-             {/* Pricing */}
              <div className="bg-gray-50 rounded-xl p-6">
                <div className="flex items-baseline justify-between mb-4">
                  <div className="flex items-baseline space-x-3">
@@ -471,7 +456,6 @@ export default function ProductPage() {
                  </div>
                </div>
 
-               {/* Quantity Selector */}
                <div className="flex items-center space-x-4 mb-6">
                  <div className="flex items-center space-x-3">
                    <span className="text-sm font-medium text-gray-700">Daudzums:</span>
@@ -521,7 +505,6 @@ export default function ProductPage() {
                  )}
                </div>
 
-               {/* Action Buttons */}
                <div className="flex space-x-4">
                  <Button
                    onClick={handleAddToCart}
@@ -562,7 +545,6 @@ export default function ProductPage() {
                  </Button>
                </div>
 
-               {/* Total Price */}
                {quantity > 1 && (
                  <div className="mt-4 pt-4 border-t border-gray-200">
                    <div className="flex justify-between items-center">
