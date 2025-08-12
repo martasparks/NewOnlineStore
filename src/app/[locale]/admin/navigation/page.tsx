@@ -5,43 +5,29 @@ import { Button } from '@/components/ui/button'
 import { Pencil, Plus, Trash, FolderOpen, Settings, Eye, ArrowRight } from 'lucide-react'
 import CategoryModal from '@/components/admin/CategoryModal'
 import { useAlert } from '@lib/store/alert'
-
-interface Category {
-  id: string
-  name: string
-  meta_title?: string
-  is_active: boolean
-  order_index: number
-  subitems?: Subcategory[]
-}
-
-interface Subcategory {
-  id: string
-  name: string
-  icon?: string
-  category_id: string
-}
-
-interface CategoryWithSubitems extends Category {
-  subitems: Subcategory[]
-}
+//import { useLoading } from '../../../../hooks/useLoading';
+//import { Loading } from '@/components/ui/Loading';
 
 const fetcher = (url: string) => fetch(url).then(res => res.json())
 
 export default function NavigationAdminPage() {
+  //const { isLoading } = useLoading(true);
+  //if (isLoading) {
+  //  return <Loading fullScreen variant="spinner" text="Lūdzu, uzgaidiet. Ielādējam..." />;
+  //}
   const { data: categories, mutate } = useSWR('/api/navigation/categories', fetcher)
   const { data: subcategories } = useSWR('/api/navigation/subcategories', fetcher)
 
   const [modalOpen, setModalOpen] = useState(false)
-  const [selected, setSelected] = useState<Category | null>(null)
-  const [combined, setCombined] = useState<CategoryWithSubitems[]>([])
+  const [selected, setSelected] = useState<any>(null)
   const { setAlert } = useAlert()
+  const [combined, setCombined] = useState<any[]>([])
 
   useEffect(() => {
     if (categories && subcategories) {
-      const enriched = categories.map((cat: Category) => ({
+      const enriched = categories.map((cat: any) => ({
         ...cat,
-        subitems: subcategories.filter((sub: Subcategory) => sub.category_id === cat.id),
+        subitems: subcategories.filter((sub: any) => sub.category_id === cat.id),
       }))
       setCombined(enriched)
     }
@@ -52,7 +38,7 @@ export default function NavigationAdminPage() {
     setModalOpen(true)
   }
 
-  const handleEdit = (item: Category) => {
+  const handleEdit = (item: any) => {
     setSelected(item)
     setModalOpen(true)
   }
@@ -146,7 +132,7 @@ export default function NavigationAdminPage() {
       <div className="space-y-4">
         <h2 className="text-xl font-semibold text-gray-900">Kategorijas</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {combined.map((cat: CategoryWithSubitems) => (
+          {combined.map((cat: any) => (
             <div key={cat.id} className="bg-white rounded-xl shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300 overflow-hidden">
 
               <div className="bg-gradient-to-r from-gray-50 to-gray-100 p-6 border-b border-gray-200">
@@ -194,7 +180,7 @@ export default function NavigationAdminPage() {
                   <div className="space-y-3">
                     <h4 className="text-sm font-medium text-gray-700 mb-3">Apakškategorijas:</h4>
                     <div className="space-y-2">
-                      {cat.subitems.slice(0, 3).map((sub: Subcategory) => (
+                      {cat.subitems.slice(0, 3).map((sub: any) => (
                         <div key={sub.id} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
                           <span className="text-lg">{sub.icon || '📁'}</span>
                           <span className="text-sm text-gray-700 font-medium">{sub.name}</span>

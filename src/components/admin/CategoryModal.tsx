@@ -23,12 +23,13 @@ interface Category {
   name: string
   slug: string
   url: string
-  meta_title: string
-  meta_description: string
+  meta_title?: string
+  meta_description?: string
   order_index: number
   is_active: boolean
   subitems?: Subcategory[]
 }
+
 
 interface Subcategory {
   id?: string
@@ -73,26 +74,26 @@ export default function CategoryModal({
   const { setAlert } = useAlert()
 
   useEffect(() => {
-    if (initialData) {
-      console.log('Initial data received:', initialData)
-      const { subitems, ...rest } = initialData
+  if (initialData) {
+    console.log('Initial data received:', initialData)
+    const { subitems, ...rest } = initialData
 
-      if (!rest.id) {
-        console.error('No ID found in initial data:', rest)
-      }
+    if (!rest.id) {
+      console.error('No ID found in initial data:', rest)
+    }
 
-      setCategory({
-        id: rest.id || '',
-        name: rest.name || '',
-        slug: rest.slug || '',
-        url: rest.url || '',
-        meta_title: rest.meta_title || '',
-        meta_description: rest.meta_description || '',
-        order_index: rest.order_index || 0,
-        is_active: rest.is_active ?? true,
-      })
-      setSubcategories(subitems || [])
-    } else {
+    setCategory({
+      id: rest.id || '',
+      name: rest.name || '',
+      slug: rest.slug || '',
+      url: rest.url || '',
+      meta_title: rest.meta_title || '',  // Handle optional
+      meta_description: rest.meta_description || '',  // Handle optional
+      order_index: rest.order_index || 0,
+      is_active: rest.is_active ?? true,
+    })
+    setSubcategories(subitems || [])
+  } else {
       setCategory({
         id: '',
         name: '',
