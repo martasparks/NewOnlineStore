@@ -4,16 +4,28 @@ import { useState } from 'react'
 import useSWR from 'swr'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Plus, Pencil, Trash, Languages, Search, Globe, ChevronDown, ChevronRight } from 'lucide-react'
+import { Plus, Pencil, Trash, Languages, Search, ChevronDown, ChevronRight } from 'lucide-react'
 import TranslationModal from '@/components/admin/TranslationModal'
 import { useAlert } from '@lib/store/alert'
+
+interface Translation {
+  id: string
+  key: string
+  value: string
+  locale: string
+  namespace: string
+}
+
+interface GroupedTranslations {
+  [locale: string]: Translation[]
+}
 
 const fetcher = (url: string) => fetch(url).then(res => res.json())
 
 export default function TranslationsAdminPage() {
   const { data: translations, mutate } = useSWR('/api/translations', fetcher)
   const [modalOpen, setModalOpen] = useState(false)
-  const [selected, setSelected] = useState<any>(null)
+  const [selected, setSelected] = useState<Translation | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterNamespace, setFilterNamespace] = useState('')
   const [collapsedLocales, setCollapsedLocales] = useState<Set<string>>(new Set(['lv', 'en', 'ru']))
@@ -24,9 +36,9 @@ export default function TranslationsAdminPage() {
     setModalOpen(true)
   }
 
-  const handleEdit = (item: any) => {
-    setSelected(item)
-    setModalOpen(true)
+  const handleEdit = (item: Translation) => {
+  setSelected(item)
+  setModalOpen(true)
   }
 
   const handleDelete = async (id: string) => {
@@ -57,38 +69,36 @@ export default function TranslationsAdminPage() {
     setCollapsedLocales(newCollapsed)
   }
 
-  // Filter and group translations
-  const filteredTranslations = translations?.filter((t: any) => {
+  const filteredTranslations = translations?.filter((t: Translation) => {
     const matchesSearch = t.key.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         t.value.toLowerCase().includes(searchTerm.toLowerCase())
+                        t.value.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesNamespace = !filterNamespace || t.namespace === filterNamespace
     
     return matchesSearch && matchesNamespace
   }) || []
 
-  // Group by locale with preferred order
   const localeOrder = ['lv', 'en', 'ru']
-  const groupedTranslations = localeOrder.reduce((acc, locale) => {
-    const localeTranslations = filteredTranslations.filter((t: any) => t.locale === locale)
-    if (localeTranslations.length > 0) {
-      acc[locale] = localeTranslations.sort((a: any, b: any) => a.key.localeCompare(b.key))
-    }
-    return acc
-  }, {} as Record<string, any[]>)
+  const groupedTranslations: GroupedTranslations = localeOrder.reduce((acc, locale) => {
+    const localeTranslations = filteredTranslations.filter((t: Translation) => t.locale === locale)
+      if (localeTranslations.length > 0) {
+    acc[locale] = localeTranslations.sort((a: Translation, b: Translation) => a.key.localeCompare(b.key))
+  }
+  return acc
+}, {} as GroupedTranslations)
 
-  // Add any other locales that aren't in the preferred order
-  filteredTranslations.forEach((t: any) => {
+
+  filteredTranslations.forEach((t: Translation) => {
     if (!localeOrder.includes(t.locale) && !groupedTranslations[t.locale]) {
       groupedTranslations[t.locale] = filteredTranslations
-        .filter((tr: any) => tr.locale === t.locale)
-        .sort((a: any, b: any) => a.key.localeCompare(b.key))
+        .filter((tr: Translation) => tr.locale === t.locale)
+        .sort((a: Translation, b: Translation) => a.key.localeCompare(b.key))
     }
   })
 
   const namespaces: string[] = translations 
-    ? [...new Set(translations.map((t: any) => t.namespace))]
-        .filter((ns): ns is string => typeof ns === 'string' && ns !== '')
-    : []
+  ? [...new Set(translations.map((t: Translation) => t.namespace))]
+      .filter((ns): ns is string => typeof ns === 'string' && ns !== '')
+  : []
 
   const getLocaleInfo = (locale: string) => {
     const localeMap: Record<string, { name: string, flag: string, color: string }> = {
@@ -101,7 +111,7 @@ export default function TranslationsAdminPage() {
 
   return (
     <div className="space-y-8">
-      {/* Header */}
+
       <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl p-8 text-white shadow-xl">
         <div className="flex items-center justify-between">
           <div>
@@ -124,7 +134,6 @@ export default function TranslationsAdminPage() {
         </div>
       </div>
 
-      {/* Filters */}
       <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
         <div className="flex flex-wrap gap-4">
           <div className="flex-1 min-w-[200px]">
@@ -152,7 +161,6 @@ export default function TranslationsAdminPage() {
         </div>
       </div>
 
-      {/* Grouped Translations */}
       <div className="space-y-6">
         {Object.entries(groupedTranslations).map(([locale, translations]) => {
           const localeInfo = getLocaleInfo(locale)
@@ -160,7 +168,7 @@ export default function TranslationsAdminPage() {
           
           return (
             <div key={locale} className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
-              {/* Locale Header */}
+
               <div 
                 className={`bg-gradient-to-r ${localeInfo.color} p-6 text-white cursor-pointer`}
                 onClick={() => toggleLocaleCollapse(locale)}
@@ -188,7 +196,6 @@ export default function TranslationsAdminPage() {
                 </div>
               </div>
 
-              {/* Translations Table */}
               {!isCollapsed && (
                 <div className="overflow-x-auto">
                   <table className="w-full">
@@ -201,7 +208,7 @@ export default function TranslationsAdminPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
-                      {translations.map((translation: any) => (
+                      {translations.map((translation: Translation) => (
                         <tr key={translation.id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 text-sm font-mono text-gray-900">
                             {translation.key}
@@ -247,7 +254,6 @@ export default function TranslationsAdminPage() {
         })}
       </div>
 
-      {/* Empty State */}
       {Object.keys(groupedTranslations).length === 0 && (
         <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-12 text-center">
           <Languages className="w-16 h-16 text-gray-400 mx-auto mb-4" />

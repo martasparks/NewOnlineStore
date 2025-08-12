@@ -2,25 +2,19 @@
 
 import { useState } from 'react'
 import useSWR from 'swr'
+import Image from 'next/image'
 import { Button } from '@/components/ui/button'
-import { Plus, Pencil, Trash, Image, Settings, Eye, ArrowRight, Monitor, Smartphone } from 'lucide-react'
-import SliderModal from '@/components/admin/SliderModal'
+import { Plus, Pencil, Trash, Image as ImageIcon, Settings, Eye, ArrowRight, Monitor, Smartphone } from 'lucide-react'
+import SliderModal, { Slide } from '@/components/admin/SliderModal'
 import { useAlert } from '@lib/store/alert'
-//import { useLoading } from '../../../../hooks/useLoading';
-//import { Loading } from '@/components/ui/Loading';
 
 const fetcher = (url: string) => fetch(url).then(res => res.json())
 
 export default function SliderAdminPage() {
 
-  //const { isLoading, withLoading } = useLoading(true);
-  //if (isLoading) {
-  //  return <Loading fullScreen variant="spinner" text="Lūdzu, uzgaidiet. Ielādējam..." />;
-  //}
-
   const { data: slides, mutate } = useSWR('/api/slider?admin=true', fetcher)
   const [modalOpen, setModalOpen] = useState(false)
-  const [selected, setSelected] = useState<any>(null)
+  const [selected, setSelected] = useState<Slide | null>(null)
   const { setAlert } = useAlert()
 
   const handleAdd = () => {
@@ -28,9 +22,9 @@ export default function SliderAdminPage() {
     setModalOpen(true)
   }
 
-  const handleEdit = (item: any) => {
-    setSelected(item)
-    setModalOpen(true)
+  const handleEdit = (item: Slide) => {
+  setSelected(item)
+  setModalOpen(true)
   }
 
   const handleDelete = async (id: string) => {
@@ -51,8 +45,8 @@ export default function SliderAdminPage() {
     }
   }
 
-  const activeSlides = slides?.filter((slide: any) => slide.is_active) || []
-  const inactiveSlides = slides?.filter((slide: any) => !slide.is_active) || []
+  const activeSlides = slides?.filter((slide: Slide) => slide.is_active) || []
+  const inactiveSlides = slides?.filter((slide: Slide) => !slide.is_active) || []
 
   return (
     <div className="space-y-8">
@@ -61,7 +55,7 @@ export default function SliderAdminPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold mb-2 flex items-center">
-              <Image className="w-8 h-8 mr-3" />
+              <ImageIcon className="w-8 h-8 mr-3" />
               Sākumlapas slaideris
             </h1>
             <p className="text-purple-100 text-lg">
@@ -83,7 +77,7 @@ export default function SliderAdminPage() {
         <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
           <div className="flex items-center justify-between mb-4">
             <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg flex items-center justify-center">
-              <Image className="w-6 h-6 text-white" />
+              <ImageIcon className="w-6 h-6 text-white" />
             </div>
             <div className="text-right">
               <p className="text-2xl font-bold text-gray-900">{slides?.length || 0}</p>
@@ -124,7 +118,7 @@ export default function SliderAdminPage() {
             Aktīvie slaidi
           </h2>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {activeSlides.map((slide: any) => (
+            {activeSlides.map((slide: Slide) => (
               <div key={slide.id} className="bg-white rounded-xl shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300 overflow-hidden">
 
                 <div className="bg-gradient-to-r from-emerald-50 to-emerald-100 p-6 border-b border-emerald-200">
@@ -160,7 +154,7 @@ export default function SliderAdminPage() {
                       <Button 
                         variant="outline" 
                         size="sm"
-                        onClick={() => handleDelete(slide.id)}
+                        onClick={() => slide.id && handleDelete(slide.id)}
                         className="hover:bg-red-50 hover:border-red-300 text-red-600"
                       >
                         <Trash className="w-4 h-4" />
@@ -192,15 +186,16 @@ export default function SliderAdminPage() {
                           <span>Desktop</span>
                         </div>
                         <div className="relative w-full h-20 bg-gray-100 rounded-lg overflow-hidden border">
-                          <img
+                          <Image
                             src={slide.image_desktop}
-                            alt="Desktop preview"
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              e.currentTarget.style.display = 'none'
-                              const sibling = e.currentTarget.nextElementSibling as HTMLElement | null
-                              if (sibling) sibling.style.display = 'flex'
-                            }}
+                            alt={`${slide.title} - Desktop versija`}
+                            fill
+                            style={{ objectFit: 'cover' }}
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none'
+                                const sibling = e.currentTarget.parentElement?.querySelector('.error-fallback') as HTMLElement | null
+                                if (sibling) sibling.style.display = 'flex'
+                              }}
                           />
                           <div className="hidden absolute inset-0 flex items-center justify-center bg-gray-100 text-gray-400 text-xs">
                             Nav attēla
@@ -213,15 +208,16 @@ export default function SliderAdminPage() {
                           <span>Mobile</span>
                         </div>
                         <div className="relative w-full h-20 bg-gray-100 rounded-lg overflow-hidden border">
-                          <img
-                            src={slide.image_mobile}
-                            alt="Mobile preview"
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              e.currentTarget.style.display = 'none'
-                              const sibling = e.currentTarget.nextElementSibling as HTMLElement | null
-                              if (sibling) sibling.style.display = 'flex'
-                            }}
+                            <Image
+                              src={slide.image_mobile}
+                              alt={`${slide.title} - Mobile versija`}
+                              fill
+                              style={{ objectFit: 'cover' }}
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none'
+                                const sibling = e.currentTarget.parentElement?.querySelector('.error-fallback') as HTMLElement | null
+                                if (sibling) sibling.style.display = 'flex'
+                              }}
                           />
                           <div className="hidden absolute inset-0 flex items-center justify-center bg-gray-100 text-gray-400 text-xs">
                             Nav attēla
@@ -244,7 +240,7 @@ export default function SliderAdminPage() {
             Neaktīvie slaidi
           </h2>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {inactiveSlides.map((slide: any) => (
+            {inactiveSlides.map((slide: Slide) => (
               <div key={slide.id} className="bg-white rounded-xl shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300 overflow-hidden opacity-75">
 
                 <div className="bg-gradient-to-r from-gray-50 to-gray-100 p-6 border-b border-gray-200">
@@ -275,7 +271,7 @@ export default function SliderAdminPage() {
                       <Button 
                         variant="outline" 
                         size="sm"
-                        onClick={() => handleDelete(slide.id)}
+                        onClick={() => slide.id && handleDelete(slide.id)}
                         className="hover:bg-red-50 hover:border-red-300 text-red-600"
                       >
                         <Trash className="w-4 h-4" />
@@ -307,10 +303,11 @@ export default function SliderAdminPage() {
                           <span>Desktop</span>
                         </div>
                         <div className="relative w-full h-20 bg-gray-100 rounded-lg overflow-hidden border">
-                          <img
+                          <Image
                             src={slide.image_desktop}
-                            alt="Desktop preview"
-                            className="w-full h-full object-cover opacity-75"
+                            alt={`${slide.title} - Desktop versija (neaktīvs)`}
+                            fill
+                            className="object-cover opacity-75"
                             onError={(e) => {
                               e.currentTarget.style.display = 'none'
                               const sibling = e.currentTarget.nextElementSibling as HTMLElement | null
@@ -328,10 +325,11 @@ export default function SliderAdminPage() {
                           <span>Mobile</span>
                         </div>
                         <div className="relative w-full h-20 bg-gray-100 rounded-lg overflow-hidden border">
-                          <img
+                          <Image
                             src={slide.image_mobile}
-                            alt="Mobile preview"
-                            className="w-full h-full object-cover opacity-75"
+                            alt={`${slide.title} - Mobile versija (neaktīvs)`}
+                            fill
+                            className="object-cover opacity-75"
                             onError={(e) => {
                               e.currentTarget.style.display = 'none'
                               const sibling = e.currentTarget.nextElementSibling as HTMLElement | null
@@ -361,7 +359,7 @@ export default function SliderAdminPage() {
       {(!slides || slides.length === 0) && (
         <div className="text-center py-12">
           <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Image className="w-12 h-12 text-gray-400" />
+            <ImageIcon className="w-12 h-12 text-gray-400" />
           </div>
           <h3 className="text-lg font-medium text-gray-900 mb-2">Nav izveidotu slaidu</h3>
           <p className="text-gray-500 mb-6">Sāciet, pievienojot savu pirmo slaidu</p>

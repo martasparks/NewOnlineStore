@@ -1,7 +1,9 @@
 'use client'
 
+import { Product } from '@/components/admin/products/types'
 import { useState } from 'react'
 import useSWR from 'swr'
+import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -26,15 +28,19 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 
+interface ProductsData {
+  products: Product[]
+}
+
 const fetcher = (url: string) => fetch(url).then(res => {
   if (!res.ok) throw new Error('Network response was not ok')
   return res.json()
 })
 
 export default function ProductsAdminPage() {
-  const { data: productsData, mutate, error } = useSWR('/api/products?admin=true', fetcher)
+  const { data: productsData, mutate, error } = useSWR<ProductsData>('/api/products?admin=true', fetcher)
+  const [selected, setSelected] = useState<Product | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
-  const [selected, setSelected] = useState<any>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
@@ -46,7 +52,7 @@ export default function ProductsAdminPage() {
     setModalOpen(true)
   }
 
-  const handleEdit = (item: any) => {
+  const handleEdit = (item: Product) => {
     setSelected(item)
     setModalOpen(true)
   }
@@ -137,9 +143,9 @@ export default function ProductsAdminPage() {
     }
   }
 
-  // Error state
-  if (error) {
-    return (
+if (error) {
+  console.error('Products loading error:', error) // Pievieno šo rindu
+  return (
       <div className="space-y-8">
         <div className="bg-red-50 border border-red-200 rounded-xl p-8 text-center">
           <h2 className="text-xl font-semibold text-red-900 mb-2">Kļūda ielādējot produktus</h2>
@@ -158,8 +164,7 @@ export default function ProductsAdminPage() {
 
   const products = productsData?.products || []
   
-  // Filtered products
-  const filteredProducts = products.filter((product: any) => {
+  const filteredProducts = products.filter((product: Product) => {
     const matchesSearch = !searchTerm || 
       product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.sku?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -172,17 +177,15 @@ export default function ProductsAdminPage() {
     return matchesSearch && matchesStatus && matchesCategory
   })
 
-  // Stats calculation
   const stats = {
     total: products.length,
-    active: products.filter((p: any) => p.status === 'active').length,
-    inactive: products.filter((p: any) => p.status === 'inactive').length,
-    outOfStock: products.filter((p: any) => p.manage_stock && p.stock_quantity === 0).length
+    active: products.filter((p: Product) => p.status === 'active').length,
+    inactive: products.filter((p: Product) => p.status === 'inactive').length,
+    outOfStock: products.filter((p: Product) => p.manage_stock && p.stock_quantity === 0).length
   }
 
   return (
     <div className="space-y-8">
-      {/* Header */}
       <div className="bg-gradient-to-r from-emerald-500 to-teal-600 rounded-2xl p-8 text-white shadow-xl">
         <div className="flex items-center justify-between">
           <div>
@@ -215,7 +218,6 @@ export default function ProductsAdminPage() {
         </div>
       </div>
 
-      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
           <div className="flex items-center justify-between mb-4">
@@ -262,7 +264,6 @@ export default function ProductsAdminPage() {
         </div>
       </div>
 
-      {/* Filters */}
       <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
         <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
           <div className="flex-1 max-w-md">
@@ -307,7 +308,6 @@ export default function ProductsAdminPage() {
                       className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md text-sm"
                     >
                       <option value="all">Visas kategorijas</option>
-                      {/* Add categories from data */}
                     </select>
                   </div>
                 </div>
@@ -316,7 +316,6 @@ export default function ProductsAdminPage() {
           </div>
         </div>
 
-        {/* Results info */}
         <div className="mt-4 flex items-center justify-between text-sm text-gray-600">
           <span>
             Rāda {filteredProducts.length} no {stats.total} produktiem
@@ -333,7 +332,6 @@ export default function ProductsAdminPage() {
         </div>
       </div>
 
-      {/* Products Table */}
       <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
         {!productsData ? (
           <div className="p-8 text-center">
@@ -385,14 +383,16 @@ export default function ProductsAdminPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredProducts.map((product: any) => (
+                {filteredProducts.map((product: Product) => (
                   <tr key={product.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center">
                         {product.images?.[0] && (
-                          <img
+                          <Image
                             src={product.images[0]}
                             alt={product.name}
+                            width={48}
+                            height={48}
                             className="w-12 h-12 rounded-lg object-cover mr-4"
                           />
                         )}
@@ -465,7 +465,7 @@ export default function ProductsAdminPage() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => toggleStatus(product.id, product.status, product.name)}
+                          onClick={() => product.id && toggleStatus(product.id, product.status, product.name)}
                           disabled={isLoading}
                           className={product.status === 'active' ? 'hover:bg-yellow-50' : 'hover:bg-green-50'}
                         >
@@ -487,7 +487,7 @@ export default function ProductsAdminPage() {
                               variant="ghost"
                               size="sm"
                               className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
-                              onClick={() => handleDelete(product.id, product.name)}
+                              onClick={() => product.id && handleDelete(product.id, product.name)}
                               disabled={isLoading}
                             >
                               <Trash className="w-4 h-4 mr-2" />
@@ -505,7 +505,6 @@ export default function ProductsAdminPage() {
         )}
       </div>
 
-      {/* Product Modal */}
       <ProductModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}

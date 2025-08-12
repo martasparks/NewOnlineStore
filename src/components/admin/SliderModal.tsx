@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from "react"
+import Image from 'next/image'
 import {
   Dialog,
   DialogContent,
@@ -12,23 +13,23 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
-import { Pencil, Plus, Save, Image, FileText, Link2, Hash, Eye } from 'lucide-react'
+import { Pencil, Plus, Save, Image as ImageIcon, FileText, Link2, Hash, Eye } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useLoading } from '@hooks/useLoading';
-import { useAlert } from '../../../lib/store/alert'
+import { useAlert } from '@lib/store/alert'
 
-interface Slide {
+export interface Slide {
   id?: string
   title: string
-  subtitle: string
-  description: string
-  button_text: string
-  button_url: string
+  subtitle?: string
+  description?: string
+  button_text?: string
+  button_url?: string
   image_desktop: string
   image_mobile: string
   order_index: number
   is_active: boolean
-  show_text: boolean
+  show_text?: boolean
 }
 
 interface SliderModalProps {
@@ -83,21 +84,21 @@ export default function SliderModal({
     }
   };
 
-  useEffect(() => {
-    if (initialData) {
-      setSlide({
-        id: initialData.id || '',
-        title: initialData.title || '',
-        subtitle: initialData.subtitle || '',
-        description: initialData.description || '',
-        button_text: initialData.button_text || '',
-        button_url: initialData.button_url || '',
-        image_desktop: initialData.image_desktop || '',
-        image_mobile: initialData.image_mobile || '',
-        order_index: initialData.order_index || 0,
-        is_active: initialData.is_active ?? true,
-        show_text: initialData.show_text ?? true,
-      })
+useEffect(() => {
+  if (initialData) {
+    setSlide({
+      id: initialData.id,
+      title: initialData.title,
+      subtitle: initialData.subtitle || '',
+      description: initialData.description || '',
+      button_text: initialData.button_text || '',
+      button_url: initialData.button_url || '',
+      image_desktop: initialData.image_desktop,
+      image_mobile: initialData.image_mobile,
+      order_index: initialData.order_index,
+      is_active: initialData.is_active,
+      show_text: initialData.show_text ?? true,
+    })
     } else {
       setSlide({
         title: '',
@@ -267,7 +268,7 @@ export default function SliderModal({
 
           <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
             <div className="flex items-center mb-4">
-              <Image className="w-5 h-5 text-purple-600 mr-2" />
+              <ImageIcon className="w-5 h-5 text-purple-600 mr-2" />
               <h3 className="text-lg font-semibold text-gray-900">Attēlu iestatījumi</h3>
             </div>
             
@@ -280,7 +281,9 @@ export default function SliderModal({
                 if (file) handleImageUpload(file, "desktop");
               }} />
               {slide.image_desktop && (
-                <img src={slide.image_desktop} alt="Desktop preview" className="mt-2 rounded max-h-40" />
+                <div className="relative mt-2 rounded max-h-40 w-full h-40">
+                  <Image src={slide.image_desktop} alt="Desktop preview" fill className="object-cover rounded" />
+                </div>
               )}
             </div>
 
@@ -291,7 +294,9 @@ export default function SliderModal({
                 if (file) handleImageUpload(file, "mobile");
               }} />
               {slide.image_mobile && (
-                <img src={slide.image_mobile} alt="Mobile preview" className="mt-2 rounded max-h-40" />
+                <div className="relative mt-2 rounded max-h-40 w-full h-40">
+                  <Image src={slide.image_mobile} alt="Mobile preview" fill className="object-cover rounded" />
+                </div>
               )}
             </div>
 
