@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useTranslations } from 'next-intl'
 import Link from 'next/link'
 import Header from '@/components/Header'
 import MainNavigation from '@/components/MainNavigation'
@@ -52,34 +51,34 @@ export default function CategoriesPage() {
     fetchCategories()
   }, [])
 
-  const fetchCategories = async () => {
-    try {
-      const [categoriesRes, subcategoriesRes] = await Promise.all([
-        fetch('/api/navigation/categories'),
-        fetch('/api/navigation/subcategories')
-      ])
-      
-      const [categoriesData, subcategoriesData] = await Promise.all([
-        categoriesRes.json(),
-        subcategoriesRes.json()
-      ])
+const fetchCategories = async () => {
+  try {
+    const [categoriesRes, subcategoriesRes] = await Promise.all([
+      fetch('/api/navigation/categories'),
+      fetch('/api/navigation/subcategories')
+    ])
+    
+    const [categoriesData, subcategoriesData] = await Promise.all([
+      categoriesRes.json(),
+      subcategoriesRes.json()
+    ])
 
-      // Apvienojam kategorijas ar apakškategorijām
-      const enrichedCategories = categoriesData.map((cat: Category) => ({
-        ...cat,
-        subitems: subcategoriesData.filter((sub: Subcategory) => 
-          subcategoriesData.some((s: any) => s.category_id === cat.id && s.id === sub.id)
-        ),
-        productCount: Math.floor(Math.random() * 50) + 5 // Placeholder - vēlāk no DB
-      }))
+    // Apvienojam kategorijas ar apakškategorijām
+    const enrichedCategories = categoriesData.map((cat: Category) => ({
+      ...cat,
+      subitems: subcategoriesData.filter((sub: { category_id: string }) => 
+        sub.category_id === cat.id
+      ),
+      productCount: Math.floor(Math.random() * 50) + 5 // Placeholder - vēlāk no DB
+    }))
 
-      setCategories(enrichedCategories.filter((cat: Category) => cat.is_active))
-    } catch (error) {
-      console.error('Error fetching categories:', error)
-    } finally {
-      setLoading(false)
-    }
+    setCategories(enrichedCategories.filter((cat: Category) => cat.is_active))
+  } catch (error) {
+    console.error('Error fetching categories:', error)
+  } finally {
+    setLoading(false)
   }
+}
 
   const filteredCategories = categories.filter(category =>
     category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||

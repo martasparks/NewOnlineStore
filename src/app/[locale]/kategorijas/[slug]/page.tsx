@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { useParams, notFound } from 'next/navigation'
-import { useTranslations } from 'next-intl'
 import Header from '@/components/Header'
 import MainNavigation from '@/components/MainNavigation'
 import ProductCard from '@/components/products/ProductCard'
