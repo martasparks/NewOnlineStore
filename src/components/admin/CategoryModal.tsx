@@ -17,31 +17,7 @@ import { useState, useEffect } from 'react'
 import { useLoading } from '@hooks/useLoading';
 import { useAlert } from '@lib/store/alert'
 import { Loading } from "../ui/Loading"
-
-interface Category {
-  id?: string
-  name: string
-  slug: string
-  url: string
-  meta_title?: string
-  meta_description?: string
-  order_index: number
-  is_active: boolean
-  subitems?: Subcategory[]
-}
-
-
-interface Subcategory {
-  id?: string
-  name: string
-  slug: string
-  url: string
-  icon: string
-  meta_title: string
-  meta_description: string
-  order_index: number
-  is_active: boolean
-}
+import { Category, Subcategory } from '@lib/types'
 
 interface CategoryModalProps {
   open: boolean
