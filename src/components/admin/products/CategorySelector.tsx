@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
-import { ChevronDown, Folder, Tag } from 'lucide-react'
+import { Folder, Tag } from 'lucide-react'
 import { Category, Subcategory } from './types'
 
 interface CategorySelectorProps {
@@ -12,7 +12,7 @@ interface CategorySelectorProps {
   categories: Category[]
   subcategories: Subcategory[]
   onCategoryChange: (categoryId: string) => void
-  onSubcategoryChange: (subcategoryId: string) => void
+  onSubcategoryChange: (subcategoryId: string | null) => void
 }
 
 export default function CategorySelector({
@@ -32,16 +32,15 @@ export default function CategorySelector({
       
       // Ja izvēlētā apakškategorija nepieder šai kategorijai, notīrām to
       if (subcategoryId && !filtered.find(sub => sub.id === subcategoryId)) {
-        onSubcategoryChange('')
+        onSubcategoryChange(null)
       }
     } else {
       setFilteredSubcategories([])
-      onSubcategoryChange('')
+      onSubcategoryChange(null)
     }
   }, [categoryId, subcategories, subcategoryId, onSubcategoryChange])
 
   const selectedCategory = categories.find(cat => cat.id === categoryId)
-  const selectedSubcategory = filteredSubcategories.find(sub => sub.id === subcategoryId)
 
   return (
     <div className="space-y-6">

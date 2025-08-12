@@ -9,11 +9,9 @@ import {
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Pencil, Plus, Save, AlertCircle, CheckCircle2 } from 'lucide-react'
-import React, { useState, useEffect, useMemo, useCallback } from 'react' // ← Pievienots useCallback
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { useLoading } from '@hooks/useLoading'
 import { useAlert } from '@lib/store/alert'
-
-// Importējam mūsu jaunos komponentus
 import ProductDetailsForm from './ProductDetailsForm'
 import CategorySelector from './CategorySelector'
 import DimensionsForm from './DimensionsForm'
@@ -35,8 +33,6 @@ export default function ProductModal({
   onSave,
 }: ProductModalProps) {
   const isEdit = !!initialData
-  
-  // State pārvaldība
   const [product, setProduct] = useState<Product & { group_id?: string; parentSlug?: string }>({
     name: '',
     slug: '',
@@ -54,7 +50,7 @@ export default function ProductModal({
     meta_description: '',
     weight: 0,
     dimensions: {},
-    group_id: '',
+    group_id: undefined,
     parentSlug: undefined
   })
   
@@ -65,7 +61,6 @@ export default function ProductModal({
   const { setAlert } = useAlert()
   const initializedRef = React.useRef(false)
 
-  // Izmantojiet useMemo validācijai
   const validationErrors = useMemo(() => {
     return ProductValidation.validateProduct(product)
   }, [product])
@@ -74,14 +69,12 @@ export default function ProductModal({
     return validationErrors.length === 0
   }, [validationErrors])
 
-  // ← KRITISKAIS LABOJUMS: Stabilizējam onOpenChange callback
   const handleOpenChange = useCallback((newOpen: boolean) => {
     if (!newOpen && !isLoading) {
       onClose()
     }
   }, [onClose, isLoading])
 
-  // Inicializācija
   useEffect(() => {
     if (!open) {
       initializedRef.current = false
@@ -108,7 +101,6 @@ export default function ProductModal({
     initializedRef.current = true
   }, [open, initialData])
 
-  // Funkcijas
   const resetForm = useCallback(() => {
     setProduct({
       name: '',
@@ -127,8 +119,10 @@ export default function ProductModal({
       meta_description: '',
       weight: 0,
       dimensions: {},
-      group_id: '',
-      parentSlug: undefined
+      group_id: undefined,
+      parentSlug: undefined,
+      category_id: undefined,
+      subcategory_id: undefined
     })
   }, [])
 
@@ -156,7 +150,15 @@ export default function ProductModal({
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target
-    
+
+    if (name === 'group_id') {
+      setProduct(prev => ({ 
+        ...prev, 
+        [name]: value.trim() === '' ? undefined : value.trim()
+      }))
+      return
+    }
+
     if (type === 'number') {
       if (name.startsWith('dimensions.')) {
         const dimensionKey = name.split('.')[1] as keyof ProductDimensions
@@ -174,12 +176,10 @@ export default function ProductModal({
       setProduct(prev => ({ ...prev, [name]: value }))
     }
     
-    // Auto-generate slug
     if (name === 'name' && !isEdit) {
       const slug = ProductValidation.sanitizeSlug(value)
       setProduct(prev => ({ ...prev, slug }))
       
-      // Check if SKU is empty before generating
       setProduct(prev => {
         if (!prev.sku) {
           const sku = ProductValidation.generateSKU(value)
@@ -198,12 +198,15 @@ export default function ProductModal({
     setProduct(prev => ({ 
       ...prev, 
       category_id: categoryId,
-      subcategory_id: '' 
+      subcategory_id: undefined
     }))
   }, [])
 
-  const handleSubcategoryChange = useCallback((subcategoryId: string) => {
-    setProduct(prev => ({ ...prev, subcategory_id: subcategoryId }))
+  const handleSubcategoryChange = useCallback((subcategoryId: string | null) => {
+    setProduct(prev => ({ 
+      ...prev, 
+      subcategory_id: subcategoryId || undefined  // Konvertē null uz undefined
+    }))
   }, [])
 
   const handleDimensionChange = useCallback((key: keyof ProductDimensions, value: number | undefined) => {
@@ -237,12 +240,25 @@ export default function ProductModal({
     await withLoading(async () => {
       try {
         const method = isEdit ? 'PUT' : 'POST'
-      const payload = { 
-        ...product, 
-        parentSlug: product.parentSlug || undefined 
+
+      const cleanProduct = {
+        ...product,
+        group_id: product.group_id && product.group_id.trim() !== '' ? product.group_id.trim() : null,
+        subcategory_id: product.subcategory_id && product.subcategory_id.trim() !== '' ? product.subcategory_id.trim() : null,  // ← PIEVIENOT ŠO!
+        category_id: product.category_id && product.category_id.trim() !== '' ? product.category_id.trim() : null  // ← UN ŠO!
       }
 
-      delete (payload as any).groupId
+      console.log('Original product.group_id:', product.group_id)
+      console.log('Cleaned group_id:', cleanProduct.group_id)
+
+        const payload = { 
+          ...cleanProduct,
+          parentSlug: product.parentSlug || undefined 
+        }
+
+        console.log('Final payload:', JSON.stringify(payload, null, 2))
+
+        delete (payload as any).groupId
 
         const res = await fetch('/api/products', {
           method,
@@ -337,15 +353,15 @@ export default function ProductModal({
                   <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="group_id">
                     Group ID (UUID)
                   </label>
-                  <input
-                    type="text"
-                    id="group_id"
-                    name="group_id"
-                    value={product.group_id || ''}
-                    onChange={handleChange}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    placeholder="Unikāls grupas ID"
-                  />
+                    <input
+                      type="text"
+                      id="group_id"
+                      name="group_id"
+                      value={product.group_id ?? ''}
+                      onChange={handleChange}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      placeholder="Unikāls grupas ID"
+                    />
                   <p className="text-xs text-gray-500 mt-1">
                     Produkti ar vienādu Group ID tiks grupēti kopā kā krāsas varianti
                   </p>

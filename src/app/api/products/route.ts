@@ -2,41 +2,20 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@lib/supabase/server'
 import { ProductValidation } from '@/components/admin/products/ProductValidation'
 
-// Rate limiting cache
 const requestCounts = new Map<string, { count: number; resetTime: number }>()
 
-function isUUID(v?: string | null): boolean {
-  return !!v && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v)
-}
+async function resolveGroupId(
+  supabase: any,
+  params: { groupId?: string | null; parentSlug?: string | null; parentSku?: string | null }
+): Promise<string | null> {
+  const { groupId, parentSlug, parentSku } = params
 
-  async function resolveGroupId(
-    supabase: any,
-    params: { groupId?: string | null; parentSlug?: string | null; parentSku?: string | null }
-  ): Promise<string | null> {
-    const { groupId, parentSlug, parentSku } = params
+  if (groupId && typeof groupId === 'string' && groupId.trim() !== '') {
+    const trimmedGroupId = groupId.trim()
+    
+    return trimmedGroupId
+  }
 
-    // Ja ir groupId
-    if (groupId && typeof groupId === 'string' && groupId.trim()) {
-      // Pārbaudām, vai tas ir UUID formātā
-      const isUuidFormat = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(groupId)
-      
-      if (isUuidFormat) {
-        // Meklējam pēc UUID
-        const { data } = await supabase
-          .from('products')
-          .select('group_id')
-          .eq('group_id', groupId)
-          .limit(1)
-          .single()
-        
-        if (data) return groupId
-      } else {
-        // Nav UUID - vienkārši atgriežam kā ir (ja datu bāze ir TEXT)
-        return groupId
-      }
-    }
-
-  // Try parentSlug
   if (parentSlug) {
     const { data } = await supabase
       .from('products')
@@ -46,7 +25,6 @@ function isUUID(v?: string | null): boolean {
     if (data) return data.group_id || data.id
   }
 
-  // Try parentSku
   if (parentSku) {
     const { data } = await supabase
       .from('products')
@@ -82,11 +60,9 @@ function checkRateLimit(key: string, maxRequests = 100, windowMs = 60000): boole
   return true
 }
 
-// CSRF aizsardzība
 function validateCSRF(request: NextRequest): boolean {
   const requestedWith = request.headers.get('x-requested-with')
   const origin = request.headers.get('origin')
-  const referer = request.headers.get('referer')
   
   if (request.method === 'GET') {
       return true
@@ -96,7 +72,6 @@ function validateCSRF(request: NextRequest): boolean {
     return false
   }
   
-  // Pārbaudām origin/referer
   if (process.env.NODE_ENV === 'production') {
     const allowedOrigins = [process.env.NEXT_PUBLIC_SITE_URL]
     if (!origin || !allowedOrigins.includes(origin)) {
@@ -107,7 +82,6 @@ function validateCSRF(request: NextRequest): boolean {
   return true
 }
 
-// Admin tiesību pārbaude
 async function checkAdminPermissions(supabase: any): Promise<{ user: any; isAdmin: boolean }> {
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   
@@ -130,9 +104,8 @@ async function checkAdminPermissions(supabase: any): Promise<{ user: any; isAdmi
 
 export async function GET(request: NextRequest) {
   try {
-    // Rate limiting
     const rateLimitKey = getRateLimitKey(request)
-    if (!checkRateLimit(rateLimitKey, 200, 60000)) { // 200 requests per minute for GET
+    if (!checkRateLimit(rateLimitKey, 200, 60000)) {
       return NextResponse.json(
         { error: 'Pārāk daudz pieprasījumu. Mēģiniet vēlāk.' }, 
         { status: 429 }
@@ -146,7 +119,6 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(50, Math.max(1, parseInt(searchParams.get('limit') || '12'))) // Max 50 items per page
     const admin = searchParams.get('admin') === 'true'
 
-    // Ja admin pieprasījums, pārbaudām tiesības
     if (admin) {
       await checkAdminPermissions(supabase)
     }
@@ -163,21 +135,17 @@ export async function GET(request: NextRequest) {
       query = query.eq('status', 'active')
     }
 
-    // Sanitizējam search parametrus
-    const search = searchParams.get('search')?.trim().substring(0, 100) // Max 100 chars
+    const search = searchParams.get('search')?.trim().substring(0, 100)
     if (search) {
-      // Escapējam SQL special characters
       const sanitizedSearch = search.replace(/[%_\\]/g, '\\$&')
       query = query.or(`name.ilike.%${sanitizedSearch}%, description.ilike.%${sanitizedSearch}%`)
     }
 
-    // Citi filtri ar validāciju
     const category = searchParams.get('category')
     if (category && /^[a-zA-Z0-9-]+$/.test(category)) {
       query = query.eq('category_id', category)
     }
 
-    // groupId filtrs (UUID validācija)
     const groupIdParam = searchParams.get('groupId')
     if (groupIdParam) query = query.eq('group_id', groupIdParam)
 
@@ -197,7 +165,6 @@ export async function GET(request: NextRequest) {
       query = query.gte('price', minPrice).lte('price', maxPrice)
     }
 
-    // Kārtošana
     const allowedSorts = ['name', 'price_asc', 'price_desc', 'created_at', 'featured']
     const sort = searchParams.get('sort') || 'name'
     
@@ -261,16 +228,14 @@ export async function POST(req: Request) {
   try {
     const request = req as NextRequest
     
-    // Rate limiting - mazāk pieprasījumu POST operācijām
     const rateLimitKey = getRateLimitKey(request)
-    if (!checkRateLimit(rateLimitKey, 20, 60000)) { // 20 creates per minute
+    if (!checkRateLimit(rateLimitKey, 20, 60000)) {
       return NextResponse.json(
         { error: 'Pārāk daudz pieprasījumu. Mēģiniet vēlāk.' }, 
         { status: 429 }
       )
     }
 
-    // CSRF aizsardzība
     if (!validateCSRF(request)) {
       return NextResponse.json({ error: 'Neatļauts pieprasījums' }, { status: 403 })
     }
@@ -279,15 +244,17 @@ export async function POST(req: Request) {
     const { user } = await checkAdminPermissions(supabase)
 
     const body = await req.json()
+    console.log('Received body:', JSON.stringify(body, null, 2))
 
     const { group_id, parentSlug, ...rest } = body || {}
+    console.log('Extracted group_id:', group_id)
     const resolvedGroupId = await resolveGroupId(supabase, { 
       groupId: group_id,
       parentSlug, 
       parentSku: null 
     })
+    console.log('Resolved group_id:', resolvedGroupId)
 
-    // Server-side validācija
     const validationErrors = ProductValidation.validateProduct(rest)
     if (validationErrors.length > 0) {
       return NextResponse.json({ 
@@ -296,7 +263,6 @@ export async function POST(req: Request) {
       }, { status: 400 })
     }
 
-    // Striktāka pārbaude: ja resolvedGroupId nav null un nav no aktīva produkta (un nav admin), noraidīt
     if (resolvedGroupId) {
       const { data: groupProduct } = await supabase
         .from('products')
@@ -304,14 +270,12 @@ export async function POST(req: Request) {
         .eq('group_id', resolvedGroupId)
         .limit(1)
         .maybeSingle()
-      // Pieņemam, ka admin vienmēr true šeit, jo checkAdminPermissions izsaukts, bet ja kādreiz admin == false
-      const admin = true // checkAdminPermissions jau pārbaudīts iepriekš
+      const admin = true
       if (!admin && (!groupProduct || groupProduct.status !== 'active')) {
         return NextResponse.json({ error: 'Nederīgs groupId vai produkts nav aktīvs' }, { status: 400 })
       }
     }
 
-    // Pārbaudām slug unikalitāti
     const { data: existingProduct } = await supabase
       .from('products')
       .select('id')
@@ -324,7 +288,6 @@ export async function POST(req: Request) {
       }, { status: 400 })
     }
 
-    // Izveidojam produktu (ar grupas saisti, ja dota)
     const insertPayload = {
       ...rest,
       group_id: resolvedGroupId || null,
@@ -332,6 +295,9 @@ export async function POST(req: Request) {
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     }
+
+    console.log('Insert payload group_id:', insertPayload.group_id)
+    console.log('Full insert payload:', JSON.stringify(insertPayload, null, 2))
 
     const { data: createdRows, error } = await supabase
       .from('products')
@@ -344,8 +310,6 @@ export async function POST(req: Request) {
     }
 
     const created = createdRows?.[0]
-
-    // Ja group_id netika nodots/atrasts, padaram šo par "galveno" (group_id = id)
     if (created && !created.group_id) {
       const { error: gErr } = await supabase
         .from('products')
@@ -357,7 +321,6 @@ export async function POST(req: Request) {
       }
     }
 
-    // Atgriežam pilnu izveidoto ierakstu ar saistītajiem laukiem
     const { data: fullProduct } = await supabase
       .from('products')
       .select(`
@@ -383,16 +346,14 @@ export async function PUT(req: Request) {
   try {
     const request = req as NextRequest
     
-    // Rate limiting
     const rateLimitKey = getRateLimitKey(request)
-    if (!checkRateLimit(rateLimitKey, 30, 60000)) { // 30 updates per minute
+    if (!checkRateLimit(rateLimitKey, 30, 60000)) {
       return NextResponse.json(
         { error: 'Pārāk daudz pieprasījumu. Mēģiniet vēlāk.' }, 
         { status: 429 }
       )
     }
 
-    // CSRF aizsardzība
     if (!validateCSRF(request)) {
       return NextResponse.json({ error: 'Neatļauts pieprasījums' }, { status: 403 })
     }
@@ -407,7 +368,6 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: 'ID ir obligāts' }, { status: 400 })
     }
 
-    // Server-side validācija — ja tikai status, izlaižam pilno validāciju
     if (!(Object.keys(updateData).length === 1 && Object.keys(updateData)[0] === 'status')) {
       const validationErrors = ProductValidation.validateProduct(updateData)
       if (validationErrors.length > 0) {
@@ -418,7 +378,6 @@ export async function PUT(req: Request) {
       }
     }
 
-    // Pārbaudām vai produkts eksistē
     const { data: existingProduct } = await supabase
       .from('products')
       .select('id, slug')
@@ -429,7 +388,6 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: 'Produkts nav atrasts' }, { status: 404 })
     }
 
-    // Pārbaudām slug unikalitāti (ja slug mainās)
     if (updateData.slug && updateData.slug !== existingProduct.slug) {
       const { data: slugExists } = await supabase
         .from('products')
@@ -445,7 +403,6 @@ export async function PUT(req: Request) {
       }
     }
 
-    // Validējam group_id ja tas tiek mainīts
     if (updateData.group_id) {
       const { data: groupExists } = await supabase
         .from('products')
@@ -461,7 +418,6 @@ export async function PUT(req: Request) {
       }
     }
 
-    // ← ŠEIT BIJA TRŪKSTOŠĀ updatePayload DEFINĪCIJA
     const updatePayload = {
       ...updateData,
       updated_at: new Date().toISOString()
@@ -492,17 +448,15 @@ export async function PUT(req: Request) {
 export async function DELETE(req: Request) {
   try {
     const request = req as NextRequest
-    
-    // Rate limiting - vēl mazāk dzēšanas operāciju
+  
     const rateLimitKey = getRateLimitKey(request)
-    if (!checkRateLimit(rateLimitKey, 10, 60000)) { // 10 deletes per minute
+    if (!checkRateLimit(rateLimitKey, 10, 60000)) {
       return NextResponse.json(
         { error: 'Pārāk daudz pieprasījumu. Mēģiniet vēlāk.' }, 
         { status: 429 }
       )
     }
 
-    // CSRF aizsardzība
     if (!validateCSRF(request)) {
       return NextResponse.json({ error: 'Neatļauts pieprasījums' }, { status: 403 })
     }
@@ -516,7 +470,6 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: 'ID ir obligāts' }, { status: 400 })
     }
 
-    // Pārbaudām vai produkts eksistē
     const { data: existingProduct } = await supabase
       .from('products')
       .select('id, name')
