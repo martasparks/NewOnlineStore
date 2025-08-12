@@ -1,13 +1,23 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useSearchParams, usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Slider } from '@/components/ui/slider'
-import { X, Filter, ChevronDown, ChevronUp } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { 
+  X, 
+  Filter, 
+  ChevronDown, 
+  ChevronUp, 
+  Loader2,
+  AlertCircle,
+  RefreshCw
+} from 'lucide-react'
+import { useDebounce } from '@hooks/useDebounce'
 
 interface Category {
   id: string
@@ -16,14 +26,28 @@ interface Category {
   productCount?: number
 }
 
-interface ProductFiltersProps {
-  onFilterChange: (filters: any) => void
+interface FilterState {
+  categories: string[]
+  minPrice: number
+  maxPrice: number
+  inStock: boolean
+  featured: boolean
+  page: number
 }
 
-export default function ProductFilters({ onFilterChange }: ProductFiltersProps) {
+interface ProductFiltersProps {
+  onFilterChange: (filters: FilterState) => void
+  isLoading?: boolean
+}
+
+export default function ProductFilters({ onFilterChange, isLoading = false }: ProductFiltersProps) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  
+  // State management
   const [categories, setCategories] = useState<Category[]>([])
+  const [categoriesLoading, setCategoriesLoading] = useState(false)
+  const [categoriesError, setCategoriesError] = useState<string | null>(null)
   const [priceRange, setPriceRange] = useState([0, 1000])
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [inStock, setInStock] = useState(false)
@@ -33,20 +57,33 @@ export default function ProductFilters({ onFilterChange }: ProductFiltersProps) 
   const [showAvailability, setShowAvailability] = useState(true)
   const [isUpdating, setIsUpdating] = useState(false)
 
-  const clamp = (val: number, min: number, max: number) => Math.min(max, Math.max(min, val))
+  // Debounced price range pentru a evita multiple requests
+  const debouncedPriceRange = useDebounce(priceRange, 500)
 
-  const visibleCategories = showAllCategories ? categories : categories.slice(0, 5)
+  // Computed values
+  const visibleCategories = useMemo(() => 
+    showAllCategories ? categories : categories.slice(0, 5),
+    [categories, showAllCategories]
+  )
+  
   const hasMoreCategories = categories.length > 5
+  
+  const activeFiltersCount = useMemo(() => 
+    selectedCategories.length + 
+    (priceRange[0] > 0 ? 1 : 0) + 
+    (priceRange[1] < 1000 ? 1 : 0) +
+    (inStock ? 1 : 0) + 
+    (featured ? 1 : 0),
+    [selectedCategories.length, priceRange, inStock, featured]
+  )
+
+  const hasActiveFilters = activeFiltersCount > 0
 
   const updateURLWithoutRefresh = useCallback((filters: Record<string, string | string[]>) => {
     const params = new URLSearchParams(searchParams.toString())
     
-    params.delete('categories')
-    params.delete('minPrice')
-    params.delete('maxPrice')
-    params.delete('inStock')
-    params.delete('featured')
-    params.delete('page')
+    const filterKeys = ['categories', 'minPrice', 'maxPrice', 'inStock', 'featured', 'page']
+    filterKeys.forEach(key => params.delete(key))
 
     Object.entries(filters).forEach(([key, value]) => {
       if (value && (Array.isArray(value) ? value.length > 0 : value !== '0')) {
@@ -73,22 +110,23 @@ export default function ProductFilters({ onFilterChange }: ProductFiltersProps) 
     })
   }, [searchParams, pathname, onFilterChange])
 
+  // Price range commitment with debouncing
   const commitPriceToURL = useCallback((range: number[]) => {
     const [minV, maxV] = range
     setIsUpdating(true)
     
-    setTimeout(() => {
-      updateURLWithoutRefresh({
-        categories: selectedCategories,
-        minPrice: clamp(Math.floor(minV), 0, 100000).toString(),
-        maxPrice: clamp(Math.ceil(maxV), 0, 100000).toString(),
-        inStock: inStock.toString(),
-        featured: featured.toString()
-      })
-      setIsUpdating(false)
-    }, 300) // Debounce price changes
+    updateURLWithoutRefresh({
+      categories: selectedCategories,
+      minPrice: Math.max(0, Math.floor(minV)).toString(),
+      maxPrice: Math.min(10000, Math.ceil(maxV)).toString(),
+      inStock: inStock.toString(),
+      featured: featured.toString()
+    })
+    
+    setTimeout(() => setIsUpdating(false), 200)
   }, [selectedCategories, inStock, featured, updateURLWithoutRefresh])
 
+  // Effects
   useEffect(() => {
     fetchCategories()
   }, [])
@@ -97,20 +135,40 @@ export default function ProductFilters({ onFilterChange }: ProductFiltersProps) 
     loadFiltersFromURL()
   }, [searchParams])
 
+  // Debounced price update
+  useEffect(() => {
+    if (debouncedPriceRange[0] !== 0 || debouncedPriceRange[1] !== 1000) {
+      commitPriceToURL(debouncedPriceRange)
+    }
+  }, [debouncedPriceRange, commitPriceToURL])
+
+  // Category fetching with error handling
   const fetchCategories = async () => {
+    setCategoriesLoading(true)
+    setCategoriesError(null)
+    
     try {
       const response = await fetch('/api/navigation/categories')
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      }
+      
       const data = await response.json()
-      setCategories(data)
+      setCategories(Array.isArray(data) ? data : [])
     } catch (error) {
       console.error('Error fetching categories:', error)
+      setCategoriesError(error instanceof Error ? error.message : 'Neizdevās ielādēt kategorijas')
+    } finally {
+      setCategoriesLoading(false)
     }
   }
 
+  // Load filters from URL
   const loadFiltersFromURL = () => {
-    const categories = searchParams.get('categories')?.split(',') || []
-    const minPrice = parseInt(searchParams.get('minPrice') || '0')
-    const maxPrice = parseInt(searchParams.get('maxPrice') || '1000')
+    const categories = searchParams.get('categories')?.split(',').filter(Boolean) || []
+    const minPrice = Math.max(0, parseInt(searchParams.get('minPrice') || '0'))
+    const maxPrice = Math.min(10000, parseInt(searchParams.get('maxPrice') || '1000'))
     const stockFilter = searchParams.get('inStock') === 'true'
     const featuredFilter = searchParams.get('featured') === 'true'
 
@@ -120,54 +178,47 @@ export default function ProductFilters({ onFilterChange }: ProductFiltersProps) 
     setFeatured(featuredFilter)
   }
 
+  // Category change handler
   const handleCategoryChange = (categorySlug: string, checked: boolean) => {
     const newCategories = checked 
       ? [...selectedCategories, categorySlug]
       : selectedCategories.filter(slug => slug !== categorySlug)
     
     setSelectedCategories(newCategories)
-    setIsUpdating(true)
     
-    setTimeout(() => {
-      updateURLWithoutRefresh({
-        categories: newCategories,
-        minPrice: priceRange[0].toString(),
-        maxPrice: priceRange[1].toString(),
-        inStock: inStock.toString(),
-        featured: featured.toString()
-      })
-      setIsUpdating(false)
-    }, 100)
+    updateURLWithoutRefresh({
+      categories: newCategories,
+      minPrice: priceRange[0].toString(),
+      maxPrice: priceRange[1].toString(),
+      inStock: inStock.toString(),
+      featured: featured.toString()
+    })
   }
 
-  const handlePriceChange = (newRange: number[]) => {
-    setPriceRange(newRange)
+  // Stock filter handler
+  const handleStockChange = (checked: boolean) => {
+    setInStock(checked)
+    
+    updateURLWithoutRefresh({
+      categories: selectedCategories,
+      minPrice: priceRange[0].toString(),
+      maxPrice: priceRange[1].toString(),
+      inStock: checked.toString(),
+      featured: featured.toString()
+    })
   }
 
-  const handlePriceCommit = (finalRange: number[]) => {
-    setPriceRange(finalRange)
-    commitPriceToURL(finalRange)
-  }
-
-  const handleCheckboxChange = (type: 'inStock' | 'featured', checked: boolean) => {
-    if (type === 'inStock') {
-      setInStock(checked)
-    } else {
-      setFeatured(checked)
-    }
+  // Featured filter handler
+  const handleFeaturedChange = (checked: boolean) => {
+    setFeatured(checked)
     
-    setIsUpdating(true)
-    
-    setTimeout(() => {
-      updateURLWithoutRefresh({
-        categories: selectedCategories,
-        minPrice: priceRange[0].toString(),
-        maxPrice: priceRange[1].toString(),
-        inStock: type === 'inStock' ? checked.toString() : inStock.toString(),
-        featured: type === 'featured' ? checked.toString() : featured.toString()
-      })
-      setIsUpdating(false)
-    }, 100)
+    updateURLWithoutRefresh({
+      categories: selectedCategories,
+      minPrice: priceRange[0].toString(),
+      maxPrice: priceRange[1].toString(),
+      inStock: inStock.toString(),
+      featured: checked.toString()
+    })
   }
 
   const clearAllFilters = () => {
@@ -175,60 +226,52 @@ export default function ProductFilters({ onFilterChange }: ProductFiltersProps) 
     setPriceRange([0, 1000])
     setInStock(false)
     setFeatured(false)
-    setIsUpdating(true)
     
-    setTimeout(() => {
-      window.history.replaceState(null, '', pathname)
-      onFilterChange({
-        categories: [],
-        minPrice: 0,
-        maxPrice: 1000,
-        inStock: false,
-        featured: false,
-        page: 1
-      })
-      setIsUpdating(false)
-    }, 100)
+    // PILNĪGS URL clear:
+    const newUrl = pathname
+    window.history.replaceState(null, '', newUrl)
+    
+    onFilterChange({
+      categories: [],
+      minPrice: 0,
+      maxPrice: 1000,
+      inStock: false,
+      featured: false,
+      page: 1
+    })
   }
 
-  const hasActiveFilters = selectedCategories.length > 0 || 
-    priceRange[0] > 0 || 
-    priceRange[1] < 1000 || 
-    inStock || 
-    featured
-
-  const activeFiltersCount = 
-    selectedCategories.length + 
-    (priceRange[0] > 0 || priceRange[1] < 1000 ? 1 : 0) +
-    (inStock ? 1 : 0) + 
-    (featured ? 1 : 0)
-
   return (
-    <div className={`bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden transition-opacity duration-200 ${isUpdating ? 'opacity-75' : 'opacity-100'}`}>
+    <div className={`bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden transition-all duration-200 ${
+      isUpdating || isLoading ? 'opacity-75 pointer-events-none' : 'opacity-100'
+    }`}>
+      
       {/* Header */}
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200 p-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center">
             <Filter className="w-6 h-6 mr-3 text-blue-600" />
-            <h3 className="text-lg font-bold text-gray-900">
-              Filtri
-            </h3>
+            <h3 className="text-lg font-bold text-gray-900">Filtri</h3>
             {activeFiltersCount > 0 && (
-              <span className="ml-5 bg-blue-600 text-white text-xs px-2 py-1 rounded-full font-medium animate-pulse">
+              <Badge variant="default" className="ml-3 bg-blue-600">
                 {activeFiltersCount}
-              </span>
+              </Badge>
+            )}
+            {(isUpdating || isLoading) && (
+              <Loader2 className="w-4 h-4 ml-3 animate-spin text-blue-600" />
             )}
           </div>
+          
           {hasActiveFilters && (
             <Button
               variant="outline"
               size="sm"
               onClick={clearAllFilters}
-              className="text-red-600 border-red-300 hover:bg-red-50 hover:border-red-400 transition-all duration-200"
-              disabled={isUpdating}
+              disabled={isUpdating || isLoading}
+              className="text-red-600 border-red-300 hover:bg-red-50 hover:border-red-400"
             >
-              <X className="w-4 h-4" />
-                Notīrīt
+              <X className="w-4 h-4 mr-1" />
+              Notīrīt
             </Button>
           )}
         </div>
@@ -236,197 +279,290 @@ export default function ProductFilters({ onFilterChange }: ProductFiltersProps) 
 
       {/* Filters Content */}
       <div className="p-6 space-y-8">
+        
         {/* Kategorijas */}
         <div>
-          <Label className="text-lg font-semibold text-gray-900 mb-4 block">
-            Kategorijas
-            {selectedCategories.length > 0 && (
-              <span className="ml-2 bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full font-medium transition-all duration-200">
-                {selectedCategories.length}
-              </span>
-            )}
-          </Label>
-          
-          <div className="space-y-3">
-            {visibleCategories.map((category) => (
-              <div key={category.id} className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-50 transition-all duration-200">
-                <Checkbox
-                  id={`category-${category.slug}`}  // mainīts uz slug
-                  checked={selectedCategories.includes(category.slug)}  // pārbauda slug
-                  onCheckedChange={(checked) => 
-                    handleCategoryChange(category.slug, checked as boolean)  // sūta slug
-                  }
-                  className="data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600 transition-all duration-200"
-                  disabled={isUpdating}
-                />
-                <Label 
-                  htmlFor={`category-${category.slug}`}  // mainīts uz slug
-                  className="text-sm text-gray-700 cursor-pointer flex-1 font-medium"
-                >
-                  {category.name}
-                  {category.productCount !== undefined && (
-                    <span className="text-gray-400 font-normal">({category.productCount})</span>
-                  )}
-                </Label>
-              </div>
-            ))}
-            
+          <button
+            onClick={() => setShowAllCategories(!showAllCategories)}
+            className="flex items-center justify-between w-full mb-4 p-2 hover:bg-gray-50 rounded-lg transition-colors"
+          >
+            <Label className="text-lg font-semibold text-gray-900 cursor-pointer">
+              Kategorijas
+              {selectedCategories.length > 0 && (
+                <Badge variant="secondary" className="ml-2">
+                  {selectedCategories.length}
+                </Badge>
+              )}
+            </Label>
             {hasMoreCategories && (
-              <button
-                onClick={() => setShowAllCategories(!showAllCategories)}
-                className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center mt-3 transition-all duration-200 hover:bg-blue-50 px-2 py-1 rounded"
-              >
-                {showAllCategories ? (
-                  <>
-                    <ChevronUp className="w-4 h-4 mr-1" />
-                    Rādīt mazāk
-                  </>
-                ) : (
-                  <>
-                    <ChevronDown className="w-4 h-4 mr-1" />
-                    Rādīt vairāk ({categories.length - 5})
-                  </>
-                )}
-              </button>
+              <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${
+                showAllCategories ? 'rotate-180' : ''
+              }`} />
             )}
-          </div>
+          </button>
+          
+          {/* Categories Loading State */}
+          {categoriesLoading && (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+              <span className="ml-2 text-gray-500">Ielādē kategorijas...</span>
+            </div>
+          )}
+
+          {/* Categories Error State */}
+          {categoriesError && (
+            <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+              <div className="flex items-center text-red-700">
+                <AlertCircle className="w-4 h-4 mr-2" />
+                <span className="text-sm font-medium">Kļūda ielādējot kategorijas</span>
+              </div>
+              <p className="text-sm text-red-600 mt-1">{categoriesError}</p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={fetchCategories}
+                className="mt-2 text-red-700 border-red-300 hover:bg-red-50"
+              >
+                <RefreshCw className="w-3 h-3 mr-1" />
+                Mēģināt vēlreiz
+              </Button>
+            </div>
+          )}
+
+          {/* Categories List */}
+          {!categoriesLoading && !categoriesError && (
+            <div className="space-y-3">
+              {visibleCategories.map((category) => (
+                <div key={category.id} className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-50 transition-colors">
+                  <Checkbox
+                    id={`category-${category.slug}`}
+                    checked={selectedCategories.includes(category.slug)}
+                    onCheckedChange={(checked) => 
+                      handleCategoryChange(category.slug, checked as boolean)
+                    }
+                    disabled={isUpdating || isLoading}
+                  />
+                  <Label 
+                    htmlFor={`category-${category.slug}`}
+                    className="flex-1 cursor-pointer font-medium text-gray-700 hover:text-gray-900"
+                  >
+                    {category.name}
+                    {category.productCount !== undefined && (
+                      <span className="ml-2 text-xs text-gray-500">
+                        ({category.productCount})
+                      </span>
+                    )}
+                  </Label>
+                </div>
+              ))}
+              
+              {hasMoreCategories && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowAllCategories(!showAllCategories)}
+                  className="w-full mt-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                >
+                  {showAllCategories ? (
+                    <>
+                      <ChevronUp className="w-4 h-4 mr-1" />
+                      Rādīt mazāk
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="w-4 h-4 mr-1" />
+                      Rādīt visas ({categories.length})
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Cenu diapazons */}
+        {/* Cenas diapazons */}
         <div>
           <button
             onClick={() => setShowPrice(!showPrice)}
-            className="flex items-center justify-between w-full mb-4 text-left hover:bg-gray-50 p-2 rounded transition-colors duration-200"
+            className="flex items-center justify-between w-full mb-4 p-2 hover:bg-gray-50 rounded-lg transition-colors"
           >
-            <Label className="text-md font-semibold text-gray-900 cursor-pointer">
-              Cenu diapazons
+            <Label className="text-lg font-semibold text-gray-900 cursor-pointer">
+              Cena
               {(priceRange[0] > 0 || priceRange[1] < 1000) && (
-                <span className="ml-2 bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-medium">
-                  €{priceRange[0]}-€{priceRange[1]}
-                </span>
+                <Badge variant="secondary" className="ml-2">
+                  €{priceRange[0]} - €{priceRange[1]}
+                </Badge>
               )}
             </Label>
-            <div className="transition-transform duration-200" style={{ transform: showPrice ? 'rotate(180deg)' : 'rotate(0deg)' }}>
-              <ChevronDown className="w-5 h-5 text-gray-500" />
-            </div>
+            <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${
+              showPrice ? 'rotate-180' : ''
+            }`} />
           </button>
           
-          <div className={`overflow-hidden transition-all duration-300 ${showPrice ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
-            <div className="space-y-6">
-              <div className="px-2 py-4">
+          {showPrice && (
+            <div className="space-y-4">
+              <div className="px-4">
                 <Slider
                   value={priceRange}
-                  onValueChange={handlePriceChange}
-                  onValueCommit={handlePriceCommit}
-                  min={0}
+                  onValueChange={setPriceRange}
                   max={1000}
+                  min={0}
                   step={10}
                   className="w-full"
-                  color="#2563eb"
-                  disabled={isUpdating}
+                  disabled={isUpdating || isLoading}
                 />
-                <div className="flex justify-between mt-3 text-xs text-gray-500">
-                  <span>€0</span>
-                  <span>€1000</span>
-                </div>
               </div>
               
-              <div className="flex items-center space-x-4">
-                <div className="flex-1">
-                  <Label className="text-sm font-medium text-gray-600 mb-1 block">No</Label>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-sm text-gray-600 mb-1 block">No (EUR)</Label>
                   <Input
                     type="number"
+                    min={0}
+                    max={1000}
                     value={priceRange[0]}
                     onChange={(e) => {
-                      const v = parseInt(e.target.value || '0', 10)
-                      setPriceRange([clamp(v, 0, priceRange[1]), priceRange[1]])
+                      const value = Math.max(0, parseInt(e.target.value) || 0)
+                      setPriceRange([value, priceRange[1]])
                     }}
-                    onBlur={() => handlePriceCommit(priceRange)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') handlePriceCommit(priceRange) }}
-                    className="text-sm transition-all duration-200"
-                    min={0}
-                    max={priceRange[1]}
-                    placeholder="0"
-                    disabled={isUpdating}
+                    className="text-sm"
+                    disabled={isUpdating || isLoading}
                   />
                 </div>
-                <div className="flex items-center justify-center pt-6">
-                  <span className="text-gray-400 font-medium">—</span>
-                </div>
-                <div className="flex-1">
-                  <Label className="text-sm font-medium text-gray-600 mb-1 block">Līdz</Label>
+                <div>
+                  <Label className="text-sm text-gray-600 mb-1 block">Līdz (EUR)</Label>
                   <Input
                     type="number"
+                    min={0}
+                    max={1000}
                     value={priceRange[1]}
                     onChange={(e) => {
-                      const v = parseInt(e.target.value || '1000', 10)
-                      setPriceRange([priceRange[0], clamp(v, priceRange[0], 1000)])
+                      const value = Math.min(1000, parseInt(e.target.value) || 1000)
+                      setPriceRange([priceRange[0], value])
                     }}
-                    onBlur={() => handlePriceCommit(priceRange)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') handlePriceCommit(priceRange) }}
-                    className="text-sm transition-all duration-200"
-                    min={priceRange[0]}
-                    max={1000}
-                    placeholder="1000"
-                    disabled={isUpdating}
+                    className="text-sm"
+                    disabled={isUpdating || isLoading}
                   />
                 </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Pieejamība */}
         <div>
           <button
             onClick={() => setShowAvailability(!showAvailability)}
-            className="flex items-center justify-between w-full mb-4 text-left hover:bg-gray-50 p-2 rounded transition-colors duration-200"
+            className="flex items-center justify-between w-full mb-4 p-2 hover:bg-gray-50 rounded-lg transition-colors"
           >
             <Label className="text-lg font-semibold text-gray-900 cursor-pointer">
-              Pieejamība un īpašības
+              Pieejamība
               {(inStock || featured) && (
-                <span className="ml-2 bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded-full font-medium">
-                  {(inStock ? 1 : 0) + (featured ? 1 : 0)}
-                </span>
+                <Badge variant="secondary" className="ml-2">
+                  {[inStock && 'Pieejams', featured && 'Populārs'].filter(Boolean).join(', ')}
+                </Badge>
               )}
             </Label>
-            <div className="transition-transform duration-200" style={{ transform: showAvailability ? 'rotate(180deg)' : 'rotate(0deg)' }}>
-              <ChevronDown className="w-5 h-5 text-gray-500" />
-            </div>
+            <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${
+              showAvailability ? 'rotate-180' : ''
+            }`} />
           </button>
           
-          <div className={`overflow-hidden transition-all duration-300 ${showAvailability ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
-            <div className="space-y-4">
-              <div className="flex items-center space-x-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-all duration-200">
+          {showAvailability && (
+            <div className="space-y-3">
+              <div className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-50 transition-colors">
                 <Checkbox
-                  id="in-stock"
+                  id="inStock"
                   checked={inStock}
-                  onCheckedChange={(checked) => handleCheckboxChange('inStock', checked as boolean)}
-                  className="data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600 transition-all duration-200"
-                  disabled={isUpdating}
+                  onCheckedChange={handleStockChange}
+                  disabled={isUpdating || isLoading}
                 />
-                <Label htmlFor="in-stock" className="text-sm text-gray-700 cursor-pointer font-medium flex-1">
+                <Label htmlFor="inStock" className="cursor-pointer font-medium text-gray-700">
                   Tikai pieejamie produkti
-                  <span className="block text-xs text-gray-500 mt-1">Rādīt tikai tos produktus, kas ir noliktavā</span>
                 </Label>
               </div>
-
-              <div className="flex items-center space-x-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-all duration-200">
+              
+              <div className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-50 transition-colors">
                 <Checkbox
                   id="featured"
                   checked={featured}
-                  onCheckedChange={(checked) => handleCheckboxChange('featured', checked as boolean)}
-                  className="data-[state=checked]:bg-orange-600 data-[state=checked]:border-orange-600 transition-all duration-200"
-                  disabled={isUpdating}
+                  onCheckedChange={handleFeaturedChange}
+                  disabled={isUpdating || isLoading}
                 />
-                <Label htmlFor="featured" className="text-sm text-gray-700 cursor-pointer font-medium flex-1">
+                <Label htmlFor="featured" className="cursor-pointer font-medium text-gray-700">
                   Populārie produkti
-                  <span className="block text-xs text-gray-500 mt-1">Mūsu ieteicamie un populārākie produkti</span>
                 </Label>
               </div>
             </div>
-          </div>
+          )}
         </div>
+
+        {/* Active Filters Summary */}
+        {hasActiveFilters && (
+          <div className="pt-4 border-t border-gray-200">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-medium text-gray-700">Aktīvie filtri:</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearAllFilters}
+                className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+              >
+                Notīrīt visus
+              </Button>
+            </div>
+            
+            <div className="flex flex-wrap gap-2">
+              {selectedCategories.map(slug => {
+                const category = categories.find(c => c.slug === slug)
+                return category ? (
+                  <Badge
+                    key={slug}
+                    variant="outline"
+                    className="text-xs cursor-pointer hover:bg-red-50 hover:border-red-300"
+                    onClick={() => handleCategoryChange(slug, false)}
+                  >
+                    {category.name}
+                    <X className="w-3 h-3 ml-1" />
+                  </Badge>
+                ) : null
+              })}
+              
+              {(priceRange[0] > 0 || priceRange[1] < 1000) && (
+                <Badge
+                  variant="outline"
+                  className="text-xs cursor-pointer hover:bg-red-50 hover:border-red-300"
+                  onClick={() => setPriceRange([0, 1000])}
+                >
+                  €{priceRange[0]} - €{priceRange[1]}
+                  <X className="w-3 h-3 ml-1" />
+                </Badge>
+              )}
+              
+              {inStock && (
+                <Badge
+                  variant="outline"
+                  className="text-xs cursor-pointer hover:bg-red-50 hover:border-red-300"
+                  onClick={() => handleStockChange(false)}
+                >
+                  Pieejams
+                  <X className="w-3 h-3 ml-1" />
+                </Badge>
+              )}
+              
+              {featured && (
+                <Badge
+                  variant="outline"
+                  className="text-xs cursor-pointer hover:bg-red-50 hover:border-red-300"
+                  onClick={() => handleFeaturedChange(false)}
+                >
+                  Populārs
+                  <X className="w-3 h-3 ml-1" />
+                </Badge>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

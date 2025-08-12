@@ -1,13 +1,14 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useParams } from 'next/navigation'
+import { useState, useEffect, useMemo } from 'react'
+import { useParams, notFound } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { notFound } from 'next/navigation'
+import Head from 'next/head'
 import Header from '@/components/Header'
 import MainNavigation from '@/components/MainNavigation'
 import ProductGallery from '@/components/products/ProductGallery'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Loading } from '@/components/ui/Loading'
 import { 
   Heart, 
@@ -21,7 +22,11 @@ import {
   RotateCcw,
   Award,
   ChevronRight,
-  Package
+  Package,
+  Ruler,
+  Weight,
+  Check,
+  AlertCircle
 } from 'lucide-react'
 
 interface Product {
@@ -34,8 +39,12 @@ interface Product {
   sale_price?: number
   sku: string
   stock_quantity: number
+  manage_stock: boolean
+  featured?: boolean
   images: string[]
   gallery: string[]
+  meta_title?: string
+  meta_description?: string
   weight?: number
   dimensions?: {
     length?: number
@@ -46,442 +55,574 @@ interface Product {
     name: string
     slug: string
   }
-  product_attribute_values?: Array<{
-    value: string
-    product_attributes: {
-      name: string
-      type: string
-      options: string[]
-    }
-  }>
+  status?: 'active' | 'inactive' | 'draft'
+  created_at?: string
+  updated_at?: string
 }
 
 export default function ProductPage() {
-  const t = useTranslations('Produkti')
   const params = useParams()
+  const slug = params?.slug as string
+  
   const [product, setProduct] = useState<Product | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [quantity, setQuantity] = useState(1)
-  const [selectedAttributes, setSelectedAttributes] = useState<Record<string, string>>({})
   const [isWishlisted, setIsWishlisted] = useState(false)
-  const [activeTab, setActiveTab] = useState<'description' | 'specs' | 'reviews'>('description')
+  const [addingToCart, setAddingToCart] = useState(false)
+
+  const effectivePrice = useMemo(() => 
+    product?.sale_price || product?.price || 0, 
+    [product?.sale_price, product?.price]
+  )
+  
+  const hasDiscount = useMemo(() => 
+    product?.sale_price && product?.price && product.sale_price < product.price,
+    [product?.sale_price, product?.price]
+  )
+  
+  const discountPercent = useMemo(() => 
+    hasDiscount && product ? 
+      Math.round(((product.price - product.sale_price!) / product.price) * 100) : 0,
+    [hasDiscount, product]
+  )
+
+  const isOutOfStock = useMemo(() => 
+    product?.manage_stock && product.stock_quantity === 0,
+    [product?.manage_stock, product?.stock_quantity]
+  )
+
+  const isLowStock = useMemo(() => 
+    product?.manage_stock && 
+    product.stock_quantity > 0 && 
+    product.stock_quantity <= 5,
+    [product?.manage_stock, product?.stock_quantity]
+  )
+
+  // SEO Meta data
+  const metaTitle = product?.meta_title || `${product?.name} | Marta's Mēbeles`
+  const metaDescription = product?.meta_description || product?.short_description || product?.description?.substring(0, 160)
 
   useEffect(() => {
-    const fetchProduct = async () => {
+    if (slug) {
+      fetchProduct(slug)
+    }
+  }, [slug])
+
+  const fetchProduct = async (productSlug: string) => {
       try {
-        const response = await fetch(`/api/products/${params.slug}`)
+        setLoading(true)
+        setError(null)
+        
+        const response = await fetch(`/api/products/${productSlug}`)
         
         if (response.status === 404) {
           notFound()
+          return
         }
         
-        if (response.ok) {
-          const data = await response.json()
-          setProduct(data)
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`)
         }
-      } catch (error) {
-        console.error('Error fetching product:', error)
-        notFound()
+        
+        const data = await response.json()
+        setProduct(data)
+      } catch (err) {
+        console.error('Error fetching product:', err)
+        setError(err instanceof Error ? err.message : 'Neizdevās ielādēt produktu')
       } finally {
         setLoading(false)
       }
-    }
+  }
 
-    if (params.slug) {
-      fetchProduct()
-    }
-  }, [params.slug])
+  const handleQuantityChange = (newQuantity: number) => {
+    if (!product) return
+    
+    const maxQuantity = product.manage_stock ? product.stock_quantity : 999
+    const validQuantity = Math.max(1, Math.min(newQuantity, maxQuantity))
+    setQuantity(validQuantity)
+  }
 
-  const handleAddToCart = () => {
-    console.log('Add to cart:', {
-      productId: product?.id,
-      quantity,
-      attributes: selectedAttributes
-    })
+  const handleAddToCart = async () => {
+    if (!product || isOutOfStock || addingToCart) return
+    
+    setAddingToCart(true)
+    try {
+      // TODO: Implement cart API call
+      await new Promise(resolve => setTimeout(resolve, 1000)) // Simulate API call
+      
+      // Success feedback
+      console.log(`Added ${quantity}x ${product.name} to cart`)
+      
+      // Reset quantity after successful add
+      setQuantity(1)
+    } catch (error) {
+      console.error('Error adding to cart:', error)
+    } finally {
+      setAddingToCart(false)
+    }
+  }
+
+  const handleWishlistToggle = async () => {
+    if (!product) return
+    
+    try {
+      setIsWishlisted(!isWishlisted)
+      // TODO: Implement wishlist API call
+      console.log(`${isWishlisted ? 'Removed from' : 'Added to'} wishlist: ${product.name}`)
+    } catch (error) {
+      // Revert on error
+      setIsWishlisted(isWishlisted)
+      console.error('Error updating wishlist:', error)
+    }
   }
 
   const handleShare = async () => {
-    if (navigator.share && product) {
+    if (!product) return
+    
+    if (navigator.share) {
       try {
         await navigator.share({
           title: product.name,
           text: product.short_description,
-          url: window.location.href,
+          url: window.location.href
         })
-      } catch (err) {
-        console.log('Error sharing:', err)
+      } catch (error) {
+        console.log('Error sharing:', error)
       }
     } else {
-      navigator.clipboard.writeText(window.location.href)
+      // Fallback: copy to clipboard
+      try {
+        await navigator.clipboard.writeText(window.location.href)
+        // TODO: Show toast notification
+        console.log('Link copied to clipboard')
+      } catch (error) {
+        console.error('Error copying to clipboard:', error)
+      }
     }
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-white">
         <Header />
         <MainNavigation />
-        <Loading variant="spinner" text="Ielādē produktu..." className="py-20" />
+        <div className="max-w-7xl mx-auto px-4 py-8">
+          <Loading fullScreen variant="spinner" text="Ielādē produktu..." />
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-white">
+        <Header />
+        <MainNavigation />
+        <div className="max-w-7xl mx-auto px-4 py-8">
+          <div className="text-center py-16">
+            <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Kļūda ielādējot produktu</h1>
+            <p className="text-gray-600 mb-6">{error}</p>
+            <Button onClick={() => fetchProduct(slug)} variant="outline">
+              <RotateCcw className="w-4 h-4 mr-2" />
+              Mēģināt vēlreiz
+            </Button>
+          </div>
+        </div>
       </div>
     )
   }
 
   if (!product) {
     notFound()
+    return null
   }
 
-  const effectivePrice = product.sale_price || product.price
-  const hasDiscount = product.sale_price && product.sale_price < product.price
-  const discountPercent = hasDiscount ? Math.round(((product.price - product.sale_price!) / product.price) * 100) : 0
-
   return (
-    <div className="min-h-screen bg-white">
-      <Header />
-      <MainNavigation />
-      
-      <div className="max-w-7xl mx-auto px-4 py-8">
+    <>
+      <Head>
+        <title>{metaTitle}</title>
+        <meta name="description" content={metaDescription} />
+        <meta property="og:title" content={product.name} />
+        <meta property="og:description" content={metaDescription} />
+        <meta property="og:image" content={product.images[0]} />
+        <meta property="og:type" content="product" />
+        <meta property="product:price:amount" content={effectivePrice.toString()} />
+        <meta property="product:price:currency" content="EUR" />
+        <link rel="canonical" href={`${process.env.NEXT_PUBLIC_SITE_URL}/produkti/${product.slug}`} />
+        
+        {/* JSON-LD Structured Data */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org/",
+              "@type": "Product",
+              "name": product.name,
+              "description": product.description,
+              "image": product.images,
+              "sku": product.sku,
+              "brand": {
+                "@type": "Brand",
+                "name": "Marta's Mēbeles"
+              },
+             "offers": {
+               "@type": "Offer",
+               "price": effectivePrice,
+               "priceCurrency": "EUR",
+               "availability": isOutOfStock ? "https://schema.org/OutOfStock" : "https://schema.org/InStock",
+               "seller": {
+                 "@type": "Organization",
+                 "name": "Marta's Mēbeles"
+               }
+             },
+             "aggregateRating": {
+               "@type": "AggregateRating",
+               "ratingValue": "4.8",
+               "reviewCount": "24"
+             }
+           })
+         }}
+       />
+     </Head>
 
-        <nav className="flex items-center space-x-2 text-sm text-gray-500 mb-8">
-          <a href="/" className="hover:text-gray-700 transition-colors">Sākums</a>
-          <ChevronRight className="w-4 h-4" />
-          <a href="/produkti" className="hover:text-gray-700 transition-colors">Produkti</a>
-          {product.navigation_categories && (
-            <>
-              <ChevronRight className="w-4 h-4" />
-              <a href={`/kategorijas/${product.navigation_categories.slug}`} className="hover:text-gray-700 transition-colors">
-                {product.navigation_categories.name}
-              </a>
-            </>
-          )}
-          <ChevronRight className="w-4 h-4" />
-          <span className="text-gray-900 font-medium">{product.name}</span>
-        </nav>
+     <div className="min-h-screen bg-white">
+       <Header />
+       <MainNavigation />
+       
+       <div className="max-w-7xl mx-auto px-4 py-8">
+         {/* Breadcrumbs */}
+         <nav className="flex items-center space-x-2 text-sm text-gray-500 mb-8" aria-label="Breadcrumb">
+           <a href="/" className="hover:text-gray-700 transition-colors">Sākums</a>
+           <ChevronRight className="w-4 h-4" />
+           <a href="/produkti" className="hover:text-gray-700 transition-colors">Produkti</a>
+           {product.navigation_categories && (
+             <>
+               <ChevronRight className="w-4 h-4" />
+               <a 
+                 href={`/kategorijas/${product.navigation_categories.slug}`} 
+                 className="hover:text-gray-700 transition-colors"
+               >
+                 {product.navigation_categories.name}
+               </a>
+             </>
+           )}
+           <ChevronRight className="w-4 h-4" />
+           <span className="text-gray-900 font-medium" aria-current="page">{product.name}</span>
+         </nav>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
+         <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
+           {/* Product Gallery */}
+           <div className="lg:sticky lg:top-8 lg:h-fit">
+             <ProductGallery 
+               images={[...product.images, ...product.gallery]}
+               alt={product.name}
+               priority
+             />
+           </div>
 
-          <div className="lg:sticky lg:top-8 lg:h-fit">
-            <ProductGallery 
-              images={[...product.images, ...product.gallery]}
-              alt={product.name}
-            />
-          </div>
+           {/* Product Information */}
+           <div className="space-y-8">
+             {/* Product Header */}
+             <div className="space-y-4">
+               <div className="flex items-start justify-between">
+                 <div className="flex-1">
+                   <h1 className="text-3xl lg:text-4xl font-bold text-gray-900 leading-tight">
+                     {product.name}
+                   </h1>
+                   
+                   <div className="flex items-center space-x-4 mt-3">
+                     <p className="text-gray-600 font-mono text-sm">SKU: {product.sku}</p>
+                     <div className="flex items-center space-x-1">
+                       {[...Array(5)].map((_, i) => (
+                         <Star key={i} className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                       ))}
+                       <span className="text-sm text-gray-600 ml-2">(4.8) 24 atsauksmes</span>
+                     </div>
+                   </div>
 
-          <div className="space-y-8">
+                   {/* Status Badges */}
+                   <div className="flex items-center space-x-3 mt-4">
+                     {product.featured && (
+                       <Badge className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white">
+                         <Award className="w-3 h-3 mr-1" />
+                         Populārs
+                       </Badge>
+                     )}
+                     
+                     {hasDiscount && (
+                       <Badge variant="destructive" className="bg-red-500">
+                         -{discountPercent}% ATLAIDE
+                       </Badge>
+                     )}
+                     
+                     {isOutOfStock ? (
+                       <Badge variant="secondary" className="bg-red-100 text-red-800">
+                         <AlertCircle className="w-3 h-3 mr-1" />
+                         Nav pieejams
+                       </Badge>
+                     ) : isLowStock ? (
+                       <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
+                         <Package className="w-3 h-3 mr-1" />
+                         Tikai {product.stock_quantity} gab.
+                       </Badge>
+                     ) : (
+                       <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                         <Check className="w-3 h-3 mr-1" />
+                         Pieejams
+                       </Badge>
+                     )}
+                   </div>
+                 </div>
+                 
+                 <Button
+                   variant="ghost"
+                   size="sm"
+                   onClick={handleShare}
+                   className="text-gray-400 hover:text-gray-600"
+                   aria-label="Dalīties ar produktu"
+                 >
+                   <Share2 className="w-5 h-5" />
+                 </Button>
+               </div>
 
-            <div className="space-y-4">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <h1 className="text-3xl lg:text-4xl font-bold text-gray-900 leading-tight">
-                    {product.name}
-                  </h1>
-                  <div className="flex items-center space-x-4 mt-3">
-                    <p className="text-gray-600">SKU: {product.sku}</p>
-                    <div className="flex items-center space-x-1">
-                      {[...Array(5)].map((_, i) => (
-                        <Star key={i} className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                      ))}
-                      <span className="text-sm text-gray-600 ml-2">(4.8) 24 atsauksmes</span>
-                    </div>
-                  </div>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleShare}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <Share2 className="w-5 h-5" />
-                </Button>
-              </div>
+               {/* Short Description */}
+               {product.short_description && (
+                 <p className="text-lg text-gray-700 leading-relaxed">
+                   {product.short_description}
+                 </p>
+               )}
+             </div>
 
-              {product.short_description && (
-                <p className="text-lg text-gray-600 leading-relaxed">
-                  {product.short_description}
-                </p>
-              )}
-            </div>
+             {/* Pricing */}
+             <div className="bg-gray-50 rounded-xl p-6">
+               <div className="flex items-baseline justify-between mb-4">
+                 <div className="flex items-baseline space-x-3">
+                   {hasDiscount ? (
+                     <>
+                       <span className="text-3xl font-bold text-red-600">
+                         €{product.sale_price?.toFixed(2)}
+                       </span>
+                       <span className="text-xl text-gray-500 line-through">
+                         €{product.price.toFixed(2)}
+                       </span>
+                       <Badge variant="destructive" className="text-xs">
+                         Ietaupi €{(product.price - product.sale_price!).toFixed(2)}
+                       </Badge>
+                     </>
+                   ) : (
+                     <span className="text-3xl font-bold text-gray-900">
+                       €{product.price.toFixed(2)}
+                     </span>
+                   )}
+                 </div>
+               </div>
 
-            <div className="bg-gray-50 rounded-2xl p-6">
-              <div className="flex items-center space-x-4 mb-4">
-                <span className="text-4xl font-bold text-gray-900">
-                  €{effectivePrice.toFixed(2)}
-                </span>
-                {hasDiscount && (
-                  <>
-                    <span className="text-2xl text-gray-500 line-through">
-                      €{product.price.toFixed(2)}
-                    </span>
-                    <span className="bg-red-500 text-white text-sm font-medium px-3 py-1 rounded-full">
-                      -{discountPercent}%
-                    </span>
-                  </>
-                )}
-              </div>
+               {/* Quantity Selector */}
+               <div className="flex items-center space-x-4 mb-6">
+                 <div className="flex items-center space-x-3">
+                   <span className="text-sm font-medium text-gray-700">Daudzums:</span>
+                   <div className="flex items-center border border-gray-300 rounded-lg">
+                     <Button
+                       variant="ghost"
+                       size="sm"
+                       onClick={() => handleQuantityChange(quantity - 1)}
+                       disabled={quantity <= 1 || isOutOfStock}
+                       className="px-3 py-1"
+                       aria-label="Samazināt daudzumu"
+                     >
+                       <Minus className="w-4 h-4" />
+                     </Button>
+                     
+                     <input
+                       type="number"
+                       min="1"
+                       max={product.manage_stock ? product.stock_quantity : 999}
+                       value={quantity}
+                       onChange={(e) => handleQuantityChange(parseInt(e.target.value) || 1)}
+                       disabled={isOutOfStock}
+                       className="w-16 text-center border-0 focus:ring-0 focus:outline-none"
+                       aria-label="Produkta daudzums"
+                     />
+                     
+                     <Button
+                       variant="ghost"
+                       size="sm"
+                       onClick={() => handleQuantityChange(quantity + 1)}
+                       disabled={
+                         isOutOfStock || 
+                         (product.manage_stock && quantity >= product.stock_quantity)
+                       }
+                       className="px-3 py-1"
+                       aria-label="Palielināt daudzumu"
+                     >
+                       <Plus className="w-4 h-4" />
+                     </Button>
+                   </div>
+                 </div>
 
-              <div className="mb-4 pb-4 border-b border-gray-200">
-                <div className="text-sm text-gray-600">
-                  Cena bez PVN: <span className="font-medium text-gray-900">€{(effectivePrice / 1.21).toFixed(2)}</span>
-                </div>
-              </div>
-              
-              <div className="flex items-center space-x-2 text-sm">
-                {product.stock_quantity > 0 ? (
-                  <>
-                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                    <span className="text-green-700 font-medium">
-                      Noliktavā ({product.stock_quantity} gab.)
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                    <span className="text-red-700 font-medium">Nav pieejams</span>
-                  </>
-                )}
-              </div>
-            </div>
+                 {product.manage_stock && (
+                   <span className="text-sm text-gray-600">
+                     ({product.stock_quantity} pieejami)
+                   </span>
+                 )}
+               </div>
 
-            {product.product_attribute_values && product.product_attribute_values.length > 0 && (
-              <div className="space-y-6">
-                {product.product_attribute_values.map((attr, index) => (
-                  <div key={index}>
-                    <label className="block text-sm font-semibold text-gray-900 mb-3">
-                      {attr.product_attributes?.name || 'Unknown attribute'}
-                    </label>
-                    <div className="flex flex-wrap gap-3">
-                      {(attr.product_attributes?.options || []).map((option) => (
-                        <button
-                          key={option}
-                          onClick={() => setSelectedAttributes(prev => ({
-                            ...prev,
-                            [attr.product_attributes?.name || '']: option
-                          }))}
-                          className={`px-6 py-3 border-2 rounded-xl text-sm font-medium transition-all duration-200 ${
-                            selectedAttributes[attr.product_attributes?.name || ''] === option
-                              ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm'
-                              : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                          }`}
-                        >
-                          {option}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+               {/* Action Buttons */}
+               <div className="flex space-x-4">
+                 <Button
+                   onClick={handleAddToCart}
+                   disabled={isOutOfStock || addingToCart}
+                   className={`flex-1 h-12 text-lg ${
+                     isOutOfStock 
+                       ? 'bg-gray-400 cursor-not-allowed' 
+                       : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800'
+                   }`}
+                   aria-label={`Pievienot ${quantity} ${product.name} iepirkumu grozam`}
+                 >
+                   {addingToCart ? (
+                     <>
+                       <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                       Pievieno...
+                     </>
+                   ) : isOutOfStock ? (
+                     'Nav pieejams'
+                   ) : (
+                     <>
+                       <ShoppingCart className="w-5 h-5 mr-2" />
+                       Pievienot grozam
+                     </>
+                   )}
+                 </Button>
+                 
+                 <Button
+                   variant="outline"
+                   onClick={handleWishlistToggle}
+                   className={`h-12 px-6 ${
+                     isWishlisted 
+                       ? 'border-red-500 text-red-500 hover:bg-red-50' 
+                       : 'hover:bg-gray-50'
+                   }`}
+                   aria-label={isWishlisted ? 'Noņemt no vēlmju saraksta' : 'Pievienot vēlmju sarakstam'}
+                 >
+                   <Heart className={`w-5 h-5 ${isWishlisted ? 'fill-red-500' : ''}`} />
+                 </Button>
+               </div>
 
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-semibold text-gray-900 mb-3">
-                  Daudzums
-                </label>
-                <div className="flex items-center space-x-4">
-                  <div className="flex items-center border-2 border-gray-200 rounded-xl overflow-hidden">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                      disabled={quantity <= 1}
-                      className="px-4 py-3 border-0 rounded-none hover:bg-gray-100"
-                    >
-                      <Minus className="w-4 h-4" />
-                    </Button>
-                    <span className="px-6 py-3 text-lg font-semibold bg-gray-50 min-w-[60px] text-center">
-                      {quantity}
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setQuantity(quantity + 1)}
-                      disabled={quantity >= product.stock_quantity}
-                      className="px-4 py-3 border-0 rounded-none hover:bg-gray-100"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              </div>
+               {/* Total Price */}
+               {quantity > 1 && (
+                 <div className="mt-4 pt-4 border-t border-gray-200">
+                   <div className="flex justify-between items-center">
+                     <span className="text-gray-700">Kopā ({quantity} gab.):</span>
+                     <span className="text-xl font-bold text-gray-900">
+                       €{(effectivePrice * quantity).toFixed(2)}
+                     </span>
+                   </div>
+                 </div>
+               )}
+             </div>
 
-              <div className="space-y-4">
-                <Button
-                  onClick={handleAddToCart}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200"
-                  size="lg"
-                  disabled={product.stock_quantity < 1}
-                >
-                  <ShoppingCart className="w-6 h-6 mr-3" />
-                  {product.stock_quantity > 0 ? 'Pievienot grozam' : 'Nav pieejams'}
-                </Button>
-                
-                <Button
-                  variant="outline"
-                  className={`w-full border-2 py-4 text-lg font-semibold rounded-xl transition-all duration-200 ${
-                    isWishlisted 
-                      ? 'border-red-500 bg-red-50 text-red-600 hover:bg-red-100'
-                      : 'border-gray-200 text-gray-600 hover:border-red-300 hover:bg-red-50 hover:text-red-600'
-                  }`}
-                  size="lg"
-                  onClick={() => setIsWishlisted(!isWishlisted)}
-                >
-                  <Heart className={`w-6 h-6 mr-3 ${isWishlisted ? 'fill-current' : ''}`} />
-                  {isWishlisted ? 'Noņemt no vēlmju saraksta' : 'Pievienot vēlmju sarakstam'}
-                </Button>
-              </div>
-            </div>
+             {/* Product Features */}
+             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+               <div className="flex items-center space-x-3 p-4 bg-blue-50 rounded-lg">
+                 <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
+                   <Truck className="w-5 h-5 text-white" />
+                 </div>
+                 <div>
+                   <p className="font-semibold text-blue-900">Bezmaksas piegāde</p>
+                   <p className="text-sm text-blue-700">Pasūtījumiem virs €50</p>
+                 </div>
+               </div>
+               
+               <div className="flex items-center space-x-3 p-4 bg-green-50 rounded-lg">
+                 <div className="w-10 h-10 bg-green-600 rounded-full flex items-center justify-center">
+                   <Shield className="w-5 h-5 text-white" />
+                 </div>
+                 <div>
+                   <p className="font-semibold text-green-900">2 gadu garantija</p>
+                   <p className="text-sm text-green-700">Pilna kvalitātes garantija</p>
+                 </div>
+               </div>
+               
+               <div className="flex items-center space-x-3 p-4 bg-purple-50 rounded-lg">
+                 <div className="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center">
+                   <RotateCcw className="w-5 h-5 text-white" />
+                 </div>
+                 <div>
+                   <p className="font-semibold text-purple-900">30 dienu atgriešana</p>
+                   <p className="text-sm text-purple-700">Bez jautājumiem</p>
+                 </div>
+               </div>
+             </div>
 
-            <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-2xl p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Ko jūs iegūstat</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                    <Truck className="w-5 h-5 text-green-600" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-gray-900">Bezmaksas piegāde</p>
-                    <p className="text-sm text-gray-600">Pasūtījumiem virs €50</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                    <Shield className="w-5 h-5 text-blue-600" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-gray-900">2 gadu garantija</p>
-                    <p className="text-sm text-gray-600">Pilna ražotāja garantija</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
-                    <RotateCcw className="w-5 h-5 text-purple-600" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-gray-900">30 dienu atgriešana</p>
-                    <p className="text-sm text-gray-600">Bez jautājumiem</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
-                    <Award className="w-5 h-5 text-orange-600" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-gray-900">Kvalitatīvs produkts</p>
-                    <p className="text-sm text-gray-600">Pārbaudīts un apstiprināts</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+             {/* Product Specifications */}
+             {(product.weight || product.dimensions) && (
+               <div className="bg-white border border-gray-200 rounded-xl p-6">
+                 <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                   <Ruler className="w-5 h-5 mr-2 text-gray-600" />
+                   Specifikācijas
+                 </h3>
+                 
+                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                   {product.dimensions?.length && (
+                     <div className="text-center p-3 bg-gray-50 rounded-lg">
+                       <p className="text-sm text-gray-600">Garums</p>
+                       <p className="font-semibold text-gray-900">{product.dimensions.length} cm</p>
+                     </div>
+                   )}
+                   
+                   {product.dimensions?.width && (
+                     <div className="text-center p-3 bg-gray-50 rounded-lg">
+                       <p className="text-sm text-gray-600">Platums</p>
+                       <p className="font-semibold text-gray-900">{product.dimensions.width} cm</p>
+                     </div>
+                   )}
+                   
+                   {product.dimensions?.height && (
+                     <div className="text-center p-3 bg-gray-50 rounded-lg">
+                       <p className="text-sm text-gray-600">Augstums</p>
+                       <p className="font-semibold text-gray-900">{product.dimensions.height} cm</p>
+                     </div>
+                   )}
+                   
+                   {product.weight && (
+                     <div className="text-center p-3 bg-gray-50 rounded-lg">
+                       <p className="text-sm text-gray-600">Svars</p>
+                       <p className="font-semibold text-gray-900 flex items-center justify-center">
+                         <Weight className="w-4 h-4 mr-1" />
+                         {product.weight} kg
+                       </p>
+                     </div>
+                   )}
+                 </div>
 
-        <div className="mt-20">
-          <div className="border-b border-gray-200">
-            <nav className="flex space-x-8">
-              {[
-                { id: 'description', label: 'Apraksts', icon: Package },
-                { id: 'specs', label: 'Specifikācijas', icon: Award },
-                { id: 'reviews', label: 'Atsauksmes (24)', icon: Star }
-              ].map((tab) => {
-                const Icon = tab.icon
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id as any)}
-                    className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                      activeTab === tab.id
-                        ? 'border-blue-500 text-blue-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }`}
-                  >
-                    <Icon className="w-5 h-5" />
-                    <span>{tab.label}</span>
-                  </button>
-                )
-              })}
-            </nav>
-          </div>
+                 {/* Volume calculation */}
+                 {product.dimensions?.length && product.dimensions?.width && product.dimensions?.height && (
+                   <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                     <p className="text-sm text-blue-700">
+                       <Package className="w-4 h-4 inline mr-1" />
+                       Tilpums: {((product.dimensions.length * product.dimensions.width * product.dimensions.height) / 1000000).toFixed(3)} m³
+                     </p>
+                   </div>
+                 )}
+               </div>
+             )}
 
-          <div className="py-12">
-            {activeTab === 'description' && (
-              <div className="max-w-4xl">
-                {product.description ? (
-                  <div 
-                    className="prose prose-lg max-w-none text-gray-700"
-                    dangerouslySetInnerHTML={{ __html: product.description }}
-                  />
-                ) : (
-                  <p className="text-gray-600">Nav pieejams detalizēts apraksts.</p>
-                )}
-              </div>
-            )}
-
-            {activeTab === 'specs' && (
-              <div className="max-w-4xl">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="space-y-4">
-                    <h3 className="text-xl font-semibold text-gray-900">Produkta informācija</h3>
-                    <dl className="space-y-3">
-                      <div className="flex justify-between py-2 border-b border-gray-100">
-                        <dt className="font-medium text-gray-600">SKU:</dt>
-                        <dd className="text-gray-900">{product.sku}</dd>
-                      </div>
-                      {product.weight && (
-                        <div className="flex justify-between py-2 border-b border-gray-100">
-                          <dt className="font-medium text-gray-600">Svars:</dt>
-                          <dd className="text-gray-900">{product.weight} kg</dd>
-                        </div>
-                      )}
-                      <div className="flex justify-between py-2 border-b border-gray-100">
-                        <dt className="font-medium text-gray-600">Daudzums noliktavā:</dt>
-                        <dd className="text-gray-900">{product.stock_quantity} gab.</dd>
-                      </div>
-                    </dl>
-                  </div>
-                  
-                  {product.dimensions && (
-                    <div className="space-y-4">
-                      <h3 className="text-xl font-semibold text-gray-900">Izmēri</h3>
-                      <dl className="space-y-3">
-                        {product.dimensions.length && (
-                          <div className="flex justify-between py-2 border-b border-gray-100">
-                            <dt className="font-medium text-gray-600">Garums:</dt>
-                            <dd className="text-gray-900">{product.dimensions.length} cm</dd>
-                          </div>
-                        )}
-                        {product.dimensions.width && (
-                          <div className="flex justify-between py-2 border-b border-gray-100">
-                            <dt className="font-medium text-gray-600">Platums:</dt>
-                            <dd className="text-gray-900">{product.dimensions.width} cm</dd>
-                          </div>
-                        )}
-                        {product.dimensions.height && (
-                          <div className="flex justify-between py-2 border-b border-gray-100">
-                            <dt className="font-medium text-gray-600">Augstums:</dt>
-                            <dd className="text-gray-900">{product.dimensions.height} cm</dd>
-                          </div>
-                        )}
-                      </dl>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'reviews' && (
-              <div className="max-w-4xl">
-                <div className="text-center py-12">
-                  <Star className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Atsauksmes drīzumā</h3>
-                  <p className="text-gray-600">Atsauksmju sistēma tiks pievienota drīzumā</p>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  )
+             {/* Product Description */}
+             {product.description && (
+               <div className="bg-white border border-gray-200 rounded-xl p-6">
+                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Apraksts</h3>
+                 <div 
+                   className="prose max-w-none text-gray-700 leading-relaxed"
+                   dangerouslySetInnerHTML={{ __html: product.description }}
+                 />
+               </div>
+             )}
+           </div>
+         </div>
+       </div>
+     </div>
+   </>
+ )
 }

@@ -1,196 +1,606 @@
+// src/components/products/ProductGallery.tsx (uzlabota)
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import Image from 'next/image'
-import { ChevronLeft, ChevronRight, ZoomIn } from 'lucide-react'
+import { 
+  ChevronLeft, 
+  ChevronRight, 
+  ZoomIn, 
+  ZoomOut,
+  Maximize2,
+  X,
+  RotateCw
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ProductPlaceholder } from '@/components/ui/ProductPlaceholder'
 
 interface ProductGalleryProps {
   images: string[]
   alt: string
+  priority?: boolean
 }
 
-export default function ProductGallery({ images, alt }: ProductGalleryProps) {
+interface TouchPosition {
+  x: number
+  y: number
+}
+
+export default function ProductGallery({ images, alt, priority = false }: ProductGalleryProps) {
   const [currentImage, setCurrentImage] = useState(0)
   const [isZoomed, setIsZoomed] = useState(false)
-  const [imageError, setImageError] = useState(false)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const [imageError, setImageError] = useState<Set<number>>(new Set())
+  const [isLoading, setIsLoading] = useState(true)
+  const [zoomLevel, setZoomLevel] = useState(1)
+  const [rotation, setRotation] = useState(0)
+  
+  // Touch handling
+  const [touchStart, setTouchStart] = useState<TouchPosition | null>(null)
+  const [touchEnd, setTouchEnd] = useState<TouchPosition | null>(null)
+  
+  // Refs
+  const galleryRef = useRef<HTMLDivElement>(null)
+  const thumbnailRefs = useRef<(HTMLButtonElement | null)[]>([])
 
-  useEffect(() => {
-  const handleKeyDown = (e: KeyboardEvent) => {
-    if (isZoomed) {
-      if (e.key === 'Escape') {
-        setIsZoomed(false)
-      } else if (e.key === 'ArrowLeft') {
-        prevImage()
-      } else if (e.key === 'ArrowRight') {
+  const hasImages = images && images.length > 0
+  const minSwipeDistance = 50
+
+  // Navigation functions
+  const nextImage = useCallback(() => {
+    if (!hasImages) return
+    setCurrentImage((prev) => (prev + 1) % images.length)
+    setZoomLevel(1)
+    setRotation(0)
+  }, [hasImages, images.length])
+
+  const prevImage = useCallback(() => {
+    if (!hasImages) return
+    setCurrentImage((prev) => (prev - 1 + images.length) % images.length)
+    setZoomLevel(1)
+    setRotation(0)
+  }, [hasImages, images.length])
+
+  const goToImage = useCallback((index: number) => {
+    if (index >= 0 && index < images.length) {
+      setCurrentImage(index)
+      setZoomLevel(1)
+      setRotation(0)
+      setImageError(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(index)
+        return newSet
+      })
+    }
+  }, [images.length])
+
+  // Zoom functions
+  const zoomIn = () => setZoomLevel(prev => Math.min(prev + 0.5, 3))
+  const zoomOut = () => setZoomLevel(prev => Math.max(prev - 0.5, 1))
+  const resetZoom = () => setZoomLevel(1)
+
+  // Rotation
+  const rotateImage = () => setRotation(prev => (prev + 90) % 360)
+
+  // Touch handlers
+  const onTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null)
+    setTouchStart({
+      x: e.targetTouches[0].clientX,
+      y: e.targetTouches[0].clientY
+    })
+  }
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd({
+      x: e.targetTouches[0].clientX,
+      y: e.targetTouches[0].clientY
+    })
+  }
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return
+    
+    const distanceX = touchStart.x - touchEnd.x
+    const distanceY = touchStart.y - touchEnd.y
+    const isLeftSwipe = distanceX > minSwipeDistance
+    const isRightSwipe = distanceX < -minSwipeDistance
+    const isVerticalSwipe = Math.abs(distanceY) > Math.abs(distanceX)
+
+    if (!isVerticalSwipe) {
+      if (isLeftSwipe && images.length > 1) {
         nextImage()
+      }
+      if (isRightSwipe && images.length > 1) {
+        prevImage()
       }
     }
   }
 
-  window.addEventListener('keydown', handleKeyDown)
-  return () => window.removeEventListener('keydown', handleKeyDown)
-}, [isZoomed])
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!hasImages) return
 
-  const hasImages = images && images.length > 0
+      switch (e.key) {
+        case 'Escape':
+          if (isFullscreen) {
+            setIsFullscreen(false)
+          } else if (isZoomed) {
+            setIsZoomed(false)
+          }
+          break
+        case 'ArrowLeft':
+          if (images.length > 1) {
+            e.preventDefault()
+            prevImage()
+          }
+          break
+        case 'ArrowRight':
+          if (images.length > 1) {
+            e.preventDefault()
+            nextImage()
+          }
+          break
+        case 'f':
+        case 'F':
+          if (!isZoomed) {
+            e.preventDefault()
+            setIsFullscreen(!isFullscreen)
+          }
+          break
+        case '+':
+        case '=':
+          if (isZoomed || isFullscreen) {
+            e.preventDefault()
+            zoomIn()
+          }
+          break
+        case '-':
+          if (isZoomed || isFullscreen) {
+            e.preventDefault()
+            zoomOut()
+          }
+          break
+        case 'r':
+        case 'R':
+          if (isZoomed || isFullscreen) {
+            e.preventDefault()
+            rotateImage()
+          }
+          break
+        case '0':
+          if (isZoomed || isFullscreen) {
+            e.preventDefault()
+            resetZoom()
+            setRotation(0)
+          }
+          break
+      }
+    }
 
-  if (!hasImages || imageError) {
+    if (isZoomed || isFullscreen) {
+      window.addEventListener('keydown', handleKeyDown)
+      return () => window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isZoomed, isFullscreen, hasImages, images.length, nextImage, prevImage])
+
+  // Scroll thumbnail into view
+  useEffect(() => {
+    if (thumbnailRefs.current[currentImage]) {
+      thumbnailRefs.current[currentImage]?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+        inline: 'center'
+      })
+    }
+  }, [currentImage])
+
+  // Handle image error
+  const handleImageError = (index: number) => {
+    setImageError(prev => new Set([...prev, index]))
+  }
+
+  // Auto-advance for single image loading
+  useEffect(() => {
+    if (hasImages) {
+      const timer = setTimeout(() => setIsLoading(false), 500)
+      return () => clearTimeout(timer)
+    }
+  }, [hasImages])
+
+  if (!hasImages) {
     return (
-      <div className="aspect-square rounded-lg overflow-hidden">
+      <div className="aspect-[4/3] rounded-xl overflow-hidden bg-gray-100">
         <ProductPlaceholder className="w-full h-full" />
       </div>
     )
   }
 
-  const nextImage = () => {
-    setCurrentImage((prev) => (prev + 1) % images.length)
-  }
-
-  const prevImage = () => {
-    setCurrentImage((prev) => (prev - 1 + images.length) % images.length)
-  }
-
   return (
-    <div className="space-y-4">
-
-      <div className="relative aspect-[4/3] bg-gray-100 rounded-lg overflow-hidden group">
-        {!imageError ? (
+    <div ref={galleryRef} className="space-y-4">
+      {/* Main Image Display */}
+      <div 
+        className="relative aspect-[4/3] bg-gray-50 rounded-xl overflow-hidden group cursor-pointer"
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        onClick={() => setIsZoomed(true)}
+      >
+        {!imageError.has(currentImage) && images[currentImage] ? (
           <Image
             src={images[currentImage]}
             alt={`${alt} - attēls ${currentImage + 1}`}
             fill
-            className="object-contain object-center cursor-zoom-in"
-            onClick={() => setIsZoomed(true)}
-            onError={() => setImageError(true)}
+            sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 600px"
+            className="object-contain object-center transition-transform duration-200 hover:scale-105"
+            priority={priority && currentImage === 0}
+            onError={() => handleImageError(currentImage)}
+            onLoad={() => setIsLoading(false)}
           />
         ) : (
           <ProductPlaceholder className="w-full h-full" />
         )}
 
+        {/* Loading Overlay */}
+        {isLoading && (
+          <div className="absolute inset-0 bg-gray-100 flex items-center justify-center">
+            <div className="w-8 h-8 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin" />
+          </div>
+        )}
+
+        {/* Navigation Buttons */}
         {images.length > 1 && (
           <>
             <Button
-              variant="outline"
+              variant="secondary"
               size="icon"
-              className="absolute left-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 backdrop-blur-sm"
-              onClick={prevImage}
+              className="absolute left-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all duration-200 bg-white/90 backdrop-blur-sm hover:bg-white shadow-lg"
+              onClick={(e) => {
+                e.stopPropagation()
+                prevImage()
+              }}
+              aria-label="Iepriekšējais attēls"
             >
-              <ChevronLeft className="w-4 h-4" />
+              <ChevronLeft className="w-5 h-5" />
             </Button>
+            
             <Button
-              variant="outline"
+              variant="secondary"
               size="icon"
-              className="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 backdrop-blur-sm"
-              onClick={nextImage}
+              className="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all duration-200 bg-white/90 backdrop-blur-sm hover:bg-white shadow-lg"
+              onClick={(e) => {
+                e.stopPropagation()
+                nextImage()
+              }}
+              aria-label="Nākamais attēls"
             >
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className="w-5 h-5" />
             </Button>
           </>
         )}
 
+        {/* Zoom Indicator */}
         <Button
-          variant="outline"
+          variant="secondary"
           size="icon"
-          className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 backdrop-blur-sm"
-          onClick={() => setIsZoomed(true)}
+          className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-all duration-200 bg-white/90 backdrop-blur-sm hover:bg-white shadow-lg"
+          onClick={(e) => {
+            e.stopPropagation()
+            setIsZoomed(true)
+          }}
+          aria-label="Palielināt attēlu"
         >
           <ZoomIn className="w-4 h-4" />
         </Button>
 
+        {/* Fullscreen Button */}
+        <Button
+          variant="secondary"
+          size="icon"
+          className="absolute top-4 left-4 opacity-0 group-hover:opacity-100 transition-all duration-200 bg-white/90 backdrop-blur-sm hover:bg-white shadow-lg"
+          onClick={(e) => {
+            e.stopPropagation()
+            setIsFullscreen(true)
+          }}
+          aria-label="Pilnekrāna režīms"
+        >
+          <Maximize2 className="w-4 h-4" />
+        </Button>
+
+        {/* Image Counter */}
         {images.length > 1 && (
-          <div className="absolute bottom-4 right-4 bg-black/50 text-white text-sm px-3 py-1 rounded-full">
+          <div className="absolute bottom-4 right-4 bg-black/70 text-white text-sm px-3 py-1 rounded-full backdrop-blur-sm">
             {currentImage + 1} / {images.length}
           </div>
         )}
       </div>
 
+      {/* Thumbnail Grid */}
       {images.length > 1 && (
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2">
           {images.map((image, index) => (
             <button
-              key={index}
-              onClick={() => {
-                setCurrentImage(index)
-                setImageError(false)
+              key={`thumb-${index}`}
+              ref={(el) => {
+                thumbnailRefs.current[index] = el
               }}
-              className={`relative aspect-[4/3] rounded-lg overflow-hidden border-2 transition-all ${
+              onClick={() => goToImage(index)}
+              className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all duration-200 ${
                 index === currentImage 
-                  ? 'border-red-500 ring-2 ring-red-200' 
-                  : 'border-gray-100 hover:border-gray-200'
+                  ? 'border-blue-500 ring-2 ring-blue-200 scale-105' 
+                  : 'border-gray-200 hover:border-gray-300 hover:scale-102'
               }`}
+              aria-label={`Apskatīt attēlu ${index + 1}`}
             >
-              <Image
-                src={image}
-                alt={`${alt} - sīkattēls ${index + 1}`}
-                fill
-                className="object-contain bg-gray-50"
-                onError={() => setImageError(true)}
-              />
+              {!imageError.has(index) ? (
+                <Image
+                  src={image}
+                  alt={`${alt} - sīkattēls ${index + 1}`}
+                  fill
+                  sizes="80px"
+                  className="object-cover"
+                  onError={() => handleImageError(index)}
+                />
+              ) : (
+                <ProductPlaceholder className="w-full h-full" />
+              )}
+              
+              {/* Active Indicator */}
+              {index === currentImage && (
+                <div className="absolute inset-0 bg-blue-500/20 flex items-center justify-center">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full" />
+                </div>
+              )}
             </button>
           ))}
         </div>
       )}
 
+      {/* Zoomed View Modal */}
       {isZoomed && (
-        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4">
-          <div className="relative max-w-4xl max-h-full">
-            {!imageError ? (
-              <Image
-                src={images[currentImage]}
-                alt={`${alt} - palielināts attēls`}
-                width={800}
-                height={800}
-                className="max-w-full max-h-full object-contain"
-                onError={() => setImageError(true)}
-              />
+        <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4">
+          <div className="relative max-w-5xl max-h-full w-full h-full flex items-center justify-center">
+            {!imageError.has(currentImage) && images[currentImage] ? (
+              <div 
+                className="relative transition-transform duration-200"
+                style={{ 
+                  transform: `scale(${zoomLevel}) rotate(${rotation}deg)`,
+                  transformOrigin: 'center'
+                }}
+              >
+                <Image
+                  src={images[currentImage]}
+                  alt={`${alt} - palielināts attēls`}
+                  width={800}
+                  height={800}
+                  className="max-w-full max-h-full object-contain"
+                  onError={() => handleImageError(currentImage)}
+                />
+              </div>
             ) : (
-              <ProductPlaceholder className="w-[800px] h-[800px]" />
+              <ProductPlaceholder className="w-[600px] h-[600px]" />
             )}
             
+            {/* Zoom Controls */}
+            <div className="absolute top-4 left-4 flex space-x-2">
+              <Button
+                variant="secondary"
+                size="icon"
+                onClick={zoomOut}
+                disabled={zoomLevel <= 1}
+                className="bg-white/90 hover:bg-white"
+                aria-label="Samazināt"
+              >
+                <ZoomOut className="w-4 h-4" />
+              </Button>
+              
+              <Button
+                variant="secondary"
+                size="icon"
+                onClick={zoomIn}
+                disabled={zoomLevel >= 3}
+                className="bg-white/90 hover:bg-white"
+                aria-label="Palielināt"
+              >
+                <ZoomIn className="w-4 h-4" />
+              </Button>
+              
+              <Button
+                variant="secondary"
+                size="icon"
+                onClick={rotateImage}
+                className="bg-white/90 hover:bg-white"
+                aria-label="Pagriezt"
+              >
+                <RotateCw className="w-4 h-4" />
+              </Button>
+              
+              <Button
+                variant="secondary"
+                size="icon"
+                onClick={() => setIsFullscreen(true)}
+                className="bg-white/90 hover:bg-white"
+                aria-label="Pilnekrāns"
+              >
+                <Maximize2 className="w-4 h-4" />
+              </Button>
+            </div>
+
+            {/* Navigation in Zoom */}
             {images.length > 1 && (
               <>
                 <Button
-                  variant="outline"
+                  variant="secondary"
                   size="icon"
                   className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white"
+                  onClick={prevImage}
+                  aria-label="Iepriekšējais attēls"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </Button>
+                
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white"
+                  onClick={nextImage}
+                  aria-label="Nākamais attēls"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </Button>
+              </>
+            )}
+
+            {/* Image Counter */}
+            {images.length > 1 && (
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/70 text-white text-sm px-4 py-2 rounded-full">
+                {currentImage + 1} / {images.length}
+              </div>
+            )}
+
+            {/* Close Button */}
+            <Button
+              variant="secondary"
+              className="absolute top-4 right-4 bg-white/90 hover:bg-white"
+              onClick={() => {
+                setIsZoomed(false)
+                setZoomLevel(1)
+                setRotation(0)
+              }}
+              aria-label="Aizvērt"
+            >
+              <X className="w-4 h-4 mr-2" />
+              Aizvērt
+            </Button>
+          </div>
+
+          {/* Click outside to close */}
+          <div 
+            className="absolute inset-0 -z-10" 
+            onClick={() => {
+              setIsZoomed(false)
+              setZoomLevel(1)
+              setRotation(0)
+            }}
+          />
+        </div>
+      )}
+
+      {/* Fullscreen Mode */}
+      {isFullscreen && (
+        <div className="fixed inset-0 z-50 bg-black flex items-center justify-center">
+          <div className="relative w-full h-full flex items-center justify-center p-4">
+            {!imageError.has(currentImage) && images[currentImage] ? (
+              <div 
+                className="relative transition-transform duration-200"
+                style={{ 
+                  transform: `scale(${zoomLevel}) rotate(${rotation}deg)`,
+                  transformOrigin: 'center'
+                }}
+              >
+                <Image
+                  src={images[currentImage]}
+                  alt={`${alt} - pilnekrāna attēls`}
+                  width={1200}
+                  height={1200}
+                  className="max-w-full max-h-full object-contain"
+                  onError={() => handleImageError(currentImage)}
+                />
+              </div>
+            ) : (
+              <ProductPlaceholder className="w-[800px] h-[800px]" />
+            )}
+
+            {/* Fullscreen Controls */}
+            <div className="absolute top-4 left-4 flex space-x-2">
+              <Button
+                variant="secondary"
+                size="icon"
+                onClick={zoomOut}
+                disabled={zoomLevel <= 1}
+                className="bg-white/20 text-white hover:bg-white/30"
+              >
+                <ZoomOut className="w-4 h-4" />
+              </Button>
+              
+              <Button
+                variant="secondary"
+                size="icon"
+                onClick={zoomIn}
+                disabled={zoomLevel >= 3}
+                className="bg-white/20 text-white hover:bg-white/30"
+              >
+                <ZoomIn className="w-4 h-4" />
+              </Button>
+              
+              <Button
+                variant="secondary"
+                size="icon"
+                onClick={rotateImage}
+                className="bg-white/20 text-white hover:bg-white/30"
+              >
+                <RotateCw className="w-4 h-4" />
+              </Button>
+            </div>
+
+            {/* Navigation */}
+            {images.length > 1 && (
+              <>
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/20 text-white hover:bg-white/30"
                   onClick={prevImage}
                 >
                   <ChevronLeft className="w-5 h-5" />
                 </Button>
+                
                 <Button
-                  variant="outline"
+                  variant="secondary"
                   size="icon"
-                  className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/20 text-white hover:bg-white/30"
                   onClick={nextImage}
                 >
                   <ChevronRight className="w-5 h-5" />
                 </Button>
               </>
             )}
-            
-            {images.length > 1 && (
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/70 text-white text-sm px-4 py-2 rounded-full">
-                {currentImage + 1} / {images.length}
-              </div>
-            )}
-            
-            <Button
-              variant="outline"
-              className="absolute top-4 right-4 bg-white/90 hover:bg-white"
-              onClick={() => setIsZoomed(false)}
-            >
-              Aizvērt
-            </Button>
-          </div>
 
-          <div 
-            className="absolute inset-0 -z-10" 
-            onClick={() => setIsZoomed(false)}
-          />
+            {/* Counter and Close */}
+            <div className="absolute top-4 right-4 flex items-center space-x-4">
+              {images.length > 1 && (
+                <div className="bg-black/70 text-white text-sm px-3 py-1 rounded-full">
+                  {currentImage + 1} / {images.length}
+                </div>
+              )}
+              
+              <Button
+                variant="secondary"
+                className="bg-white/20 text-white hover:bg-white/30"
+                onClick={() => {
+                  setIsFullscreen(false)
+                  setZoomLevel(1)
+                  setRotation(0)
+                }}
+              >
+                <X className="w-4 h-4 mr-2" />
+                Aizvērt
+              </Button>
+            </div>
+
+            {/* Instructions */}
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/70 text-white text-xs px-4 py-2 rounded-full">
+              <span className="hidden md:inline">
+                Tastatūra: ← → (navigācija), +/- (tālummaiņa), R (griešana), F (pilnekrāns), ESC (aizvērt)
+              </span>
+              <span className="md:hidden">
+                Velciet pa labi/kreisi navigācijai
+              </span>
+            </div>
+          </div>
         </div>
       )}
-
     </div>
   )
 }

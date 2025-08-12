@@ -20,6 +20,10 @@ interface Product {
   price: number
   sale_price?: number
   images: string[]
+  stock_quantity?: number
+  manage_stock?: boolean
+  featured?: boolean
+  sku?: string
   navigation_categories?: {
     name: string
     slug: string
@@ -68,10 +72,6 @@ const fetchProducts = useCallback(async (filters?: FilterState, sort?: string) =
     const params = new URLSearchParams()
     
     if (filters) {
-      // Izmantojam filtrus no state
-      params.set('page', filters.page.toString())
-      params.set('limit', '12')
-      
       if (filters.categories && filters.categories.length > 0) {
         params.set('categories', filters.categories.join(','))
       }
@@ -87,17 +87,19 @@ const fetchProducts = useCallback(async (filters?: FilterState, sort?: string) =
       if (filters.featured) {
         params.set('featured', 'true')
       }
-      
-      // Pievienojam sort parametru
-      const currentSort = sort || sortBy || 'name'
-      params.set('sort', currentSort)
-      
-      // Atjauninam URL ar sort parametru
-      const newUrl = `${window.location.pathname}?${params.toString()}`
-      window.history.replaceState(null, '', newUrl)
-      
+      if (filters.page > 1) {
+        params.set('page', filters.page.toString())
+      }
+      if (sort && sort !== 'name') {
+        params.set('sort', sort)
+      }
+      if (params.toString()) {
+        const newUrl = `${window.location.pathname}?${params.toString()}`
+        window.history.replaceState(null, '', newUrl)
+      } else {
+        window.history.replaceState(null, '', window.location.pathname)
+      }     
     } else {
-      // Izmantojam URL params
       const page = searchParams.get('page') || '1'
       const category = searchParams.get('category')
       const search = searchParams.get('search')
@@ -275,6 +277,7 @@ const fetchProducts = useCallback(async (filters?: FilterState, sort?: string) =
                         <ProductCard
                           product={product}
                           viewMode={viewMode}
+                          imageStyle="contain"
                         />
                       </div>
                     ))}

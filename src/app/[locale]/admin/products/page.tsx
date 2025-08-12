@@ -4,23 +4,42 @@ import { useState } from 'react'
 import useSWR from 'swr'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Plus, Pencil, Trash, Package, Search, Eye, MoreHorizontal } from 'lucide-react'
-import ProductModal from '@/components/admin/ProductModal'
+import { Badge } from '@/components/ui/badge'
+import { 
+  Plus, 
+  Pencil, 
+  Trash, 
+  Package, 
+  Search, 
+  Eye,
+  EyeOff,
+  Filter,
+  Download,
+  MoreHorizontal
+} from 'lucide-react'
+import ProductModal from '@/components/admin/products/ProductModal'
 import { useAlert } from '@lib/store/alert'
+import { useLoading } from '@hooks/useLoading'
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
 
-const fetcher = (url: string) => fetch(url).then(res => res.json())
+const fetcher = (url: string) => fetch(url).then(res => {
+  if (!res.ok) throw new Error('Network response was not ok')
+  return res.json()
+})
 
 export default function ProductsAdminPage() {
-  const { data: productsData, mutate } = useSWR('/api/products?admin=true', fetcher)
+  const { data: productsData, mutate, error } = useSWR('/api/products?admin=true', fetcher)
   const [modalOpen, setModalOpen] = useState(false)
   const [selected, setSelected] = useState<any>(null)
   const [searchTerm, setSearchTerm] = useState('')
+  const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const { setAlert } = useAlert()
+  const { isLoading, withLoading } = useLoading()
 
   const handleAdd = () => {
     setSelected(null)
@@ -32,46 +51,134 @@ export default function ProductsAdminPage() {
     setModalOpen(true)
   }
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Vai tiešām dzēst šo produktu?')) return
+  const handleDelete = async (id: string, name: string) => {
+    if (!confirm(`Vai tiešām dzēst produktu "${name}"?`)) return
 
-    const res = await fetch('/api/products', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id })
+    await withLoading(async () => {
+      try {
+        const res = await fetch('/api/products', {
+          method: 'DELETE',
+          headers: { 
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+          },
+          body: JSON.stringify({ id })
+        })
+
+        const data = await res.json()
+
+        if (!res.ok) {
+          throw new Error(data.error || 'Kļūda dzēšot produktu')
+        }
+
+        setAlert(data.message || 'Produkts dzēsts', 'success')
+        mutate()
+      } catch (error) {
+        setAlert(
+          error instanceof Error ? error.message : 'Kļūda dzēšot produktu', 
+          'error'
+        )
+      }
     })
+  }
 
-    if (res.ok) {
-      setAlert('Produkts dzēsts', 'success')
-      mutate()
-    } else {
-      const err = await res.json()
-      setAlert(err.error || 'Kļūda dzēšot produktu', 'error')
+  const toggleStatus = async (id: string, currentStatus: string, name: string) => {
+    const newStatus = currentStatus === 'active' ? 'inactive' : 'active'
+    
+    await withLoading(async () => {
+      try {
+        const res = await fetch('/api/products', {
+          method: 'PUT',
+          headers: { 
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+          },
+          body: JSON.stringify({ id, status: newStatus })
+        })
+
+        if (!res.ok) {
+          const data = await res.json()
+          throw new Error(data.error || 'Neizdevās mainīt statusu')
+        }
+
+        setAlert(
+          `Produkts "${name}" ${newStatus === 'active' ? 'aktivizēts' : 'deaktivizēts'}`, 
+          'success'
+        )
+        mutate()
+      } catch (error) {
+        setAlert(
+          error instanceof Error ? error.message : 'Neizdevās mainīt statusu', 
+          'error'
+        )
+      }
+    })
+  }
+
+  const handleExport = async () => {
+    try {
+      const res = await fetch('/api/products/export', {
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest'
+        }
+      })
+      
+      if (res.ok) {
+        const blob = await res.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `produkti_${new Date().toISOString().split('T')[0]}.csv`
+        a.click()
+        window.URL.revokeObjectURL(url)
+      }
+    } catch (error) {
+      setAlert('Neizdevās eksportēt produktus', 'error')
     }
   }
 
-  const toggleStatus = async (id: string, currentStatus: string) => {
-    const newStatus = currentStatus === 'active' ? 'inactive' : 'active'
-    
-    const res = await fetch('/api/products', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, status: newStatus })
-    })
-
-    if (res.ok) {
-      setAlert(`Produkts ${newStatus === 'active' ? 'aktivizēts' : 'deaktivizēts'}`, 'success')
-      mutate()
-    } else {
-      setAlert('Neizdevās mainīt statusu', 'error')
-    }
+  // Error state
+  if (error) {
+    return (
+      <div className="space-y-8">
+        <div className="bg-red-50 border border-red-200 rounded-xl p-8 text-center">
+          <h2 className="text-xl font-semibold text-red-900 mb-2">Kļūda ielādējot produktus</h2>
+          <p className="text-red-700">Lūdzu atsvaidziniet lapu vai mēģiniet vēlāk.</p>
+          <Button 
+            onClick={() => mutate()} 
+            className="mt-4"
+            variant="outline"
+          >
+            Mēģināt vēlreiz
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   const products = productsData?.products || []
-  const filteredProducts = products.filter((product: any) =>
-    product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.sku?.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  
+  // Filtered products
+  const filteredProducts = products.filter((product: any) => {
+    const matchesSearch = !searchTerm || 
+      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.sku?.toLowerCase().includes(searchTerm.toLowerCase())
+    
+    const matchesStatus = statusFilter === 'all' || product.status === statusFilter
+    
+    const matchesCategory = categoryFilter === 'all' || 
+      product.category_id === categoryFilter
+
+    return matchesSearch && matchesStatus && matchesCategory
+  })
+
+  // Stats calculation
+  const stats = {
+    total: products.length,
+    active: products.filter((p: any) => p.status === 'active').length,
+    inactive: products.filter((p: any) => p.status === 'inactive').length,
+    outOfStock: products.filter((p: any) => p.manage_stock && p.stock_quantity === 0).length
+  }
 
   return (
     <div className="space-y-8">
@@ -87,14 +194,24 @@ export default function ProductsAdminPage() {
               Pārvaldiet veikala produktus, cenas un pieejamību
             </p>
           </div>
-          <Button 
-            onClick={handleAdd}
-            className="bg-white/20 hover:bg-white/30 text-white border-white/30 backdrop-blur-sm"
-            size="lg"
-          >
-            <Plus className="w-5 h-5 mr-2" />
-            Pievienot produktu
-          </Button>
+          <div className="flex space-x-3">
+            <Button 
+              onClick={handleExport}
+              variant="secondary"
+              className="bg-white/20 hover:bg-white/30 text-white border-white/30"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Eksportēt
+            </Button>
+            <Button 
+              onClick={handleAdd}
+              className="bg-white/20 hover:bg-white/30 text-white border-white/30 backdrop-blur-sm"
+              size="lg"
+            >
+              <Plus className="w-5 h-5 mr-2" />
+              Pievienot produktu
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -105,64 +222,54 @@ export default function ProductsAdminPage() {
             <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
               <Package className="w-6 h-6 text-white" />
             </div>
-            <div className="text-right">
-              <p className="text-2xl font-bold text-gray-900">{products.length}</p>
-              <p className="text-gray-600 text-sm">Kopā produkti</p>
-            </div>
+            <Badge variant="secondary">{stats.total}</Badge>
           </div>
+          <h3 className="text-lg font-semibold text-gray-900">Kopā produktu</h3>
+          <p className="text-sm text-gray-600">Visi produkti sistēmā</p>
         </div>
 
         <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
           <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-lg flex items-center justify-center">
+            <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-green-600 rounded-lg flex items-center justify-center">
               <Eye className="w-6 h-6 text-white" />
             </div>
-            <div className="text-right">
-              <p className="text-2xl font-bold text-gray-900">
-                {products.filter((p: any) => p.status === 'active').length}
-              </p>
-              <p className="text-gray-600 text-sm">Aktīvie</p>
-            </div>
+            <Badge variant="default" className="bg-green-100 text-green-800">{stats.active}</Badge>
           </div>
+          <h3 className="text-lg font-semibold text-gray-900">Aktīvi</h3>
+          <p className="text-sm text-gray-600">Redzami veikalā</p>
         </div>
 
         <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
           <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg flex items-center justify-center">
-              <Package className="w-6 h-6 text-white" />
+            <div className="w-12 h-12 bg-gradient-to-r from-gray-500 to-gray-600 rounded-lg flex items-center justify-center">
+              <EyeOff className="w-6 h-6 text-white" />
             </div>
-            <div className="text-right">
-              <p className="text-2xl font-bold text-gray-900">
-                {products.filter((p: any) => p.stock_quantity < 5).length}
-              </p>
-              <p className="text-gray-600 text-sm">Zemi krājumi</p>
-            </div>
+            <Badge variant="secondary">{stats.inactive}</Badge>
           </div>
+          <h3 className="text-lg font-semibold text-gray-900">Neaktīvi</h3>
+          <p className="text-sm text-gray-600">Slēpti no veikala</p>
         </div>
 
         <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
           <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg flex items-center justify-center">
+            <div className="w-12 h-12 bg-gradient-to-r from-red-500 to-red-600 rounded-lg flex items-center justify-center">
               <Package className="w-6 h-6 text-white" />
             </div>
-            <div className="text-right">
-              <p className="text-2xl font-bold text-gray-900">
-                {products.filter((p: any) => p.featured).length}
-              </p>
-              <p className="text-gray-600 text-sm">Populārie</p>
-            </div>
+            <Badge variant="destructive">{stats.outOfStock}</Badge>
           </div>
+          <h3 className="text-lg font-semibold text-gray-900">Nav krājumā</h3>
+          <p className="text-sm text-gray-600">Nepieejami pirkšanai</p>
         </div>
       </div>
 
-      {/* Search and Filters */}
+      {/* Filters */}
       <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
-        <div className="flex flex-wrap gap-4 items-center">
-          <div className="flex-1 min-w-[200px]">
+        <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
+          <div className="flex-1 max-w-md">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
               <Input
-                placeholder="Meklēt produktus..."
+                placeholder="Meklēt produktus vai SKU..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -170,168 +277,243 @@ export default function ProductsAdminPage() {
             </div>
           </div>
           
-          <select className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
-            <option value="">Visi statusi</option>
-            <option value="active">Aktīvs</option>
-            <option value="inactive">Neaktīvs</option>
-            <option value="draft">Melnraksts</option>
-          </select>
+          <div className="flex gap-3">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="all">Visi statusi</option>
+              <option value="active">Aktīvi</option>
+              <option value="inactive">Neaktīvi</option>
+              <option value="draft">Melnraksti</option>
+            </select>
 
-          <select className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
-            <option value="">Visas kategorijas</option>
-          </select>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline">
+                  <Filter className="w-4 h-4 mr-2" />
+                  Filtri
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-56">
+                <div className="space-y-3">
+                  <h4 className="font-medium">Papildu filtri</h4>
+                  <div>
+                    <label className="text-sm text-gray-600">Kategorija</label>
+                    <select
+                      value={categoryFilter}
+                      onChange={(e) => setCategoryFilter(e.target.value)}
+                      className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md text-sm"
+                    >
+                      <option value="all">Visas kategorijas</option>
+                      {/* Add categories from data */}
+                    </select>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+        </div>
+
+        {/* Results info */}
+        <div className="mt-4 flex items-center justify-between text-sm text-gray-600">
+          <span>
+            Rāda {filteredProducts.length} no {stats.total} produktiem
+          </span>
+          {searchTerm && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSearchTerm('')}
+            >
+              Notīrīt meklēšanu
+            </Button>
+          )}
         </div>
       </div>
 
       {/* Products Table */}
       <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
-        {filteredProducts.length > 0 ? (
+        {!productsData ? (
+          <div className="p-8 text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Ielādē produktus...</p>
+          </div>
+        ) : filteredProducts.length === 0 ? (
+          <div className="p-8 text-center">
+            <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+              {searchTerm ? 'Nav atrasti produkti' : 'Nav produktu'}
+            </h3>
+            <p className="text-gray-600 mb-4">
+              {searchTerm 
+                ? 'Mēģiniet mainīt meklēšanas kritērijus' 
+                : 'Pievienojiet pirmo produktu, lai sāktu'
+              }
+            </p>
+            {!searchTerm && (
+              <Button onClick={handleAdd}>
+                <Plus className="w-4 h-4 mr-2" />
+                Pievienot produktu
+              </Button>
+            )}
+          </div>
+        ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="px-6 py-4 text-left text-sm font-medium text-gray-900">Produkts</th>
-                  <th className="px-6 py-4 text-left text-sm font-medium text-gray-900">SKU</th>
-                  <th className="px-6 py-4 text-left text-sm font-medium text-gray-900">Kategorija</th>
-                  <th className="px-6 py-4 text-left text-sm font-medium text-gray-900">Cena</th>
-                  <th className="px-6 py-4 text-left text-sm font-medium text-gray-900">Krājumi</th>
-                  <th className="px-6 py-4 text-left text-sm font-medium text-gray-900">Statuss</th>
-                  <th className="px-6 py-4 text-right text-sm font-medium text-gray-900">Darbības</th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Produkts
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    SKU
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Cena
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Krājumi
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Statuss
+                  </th>
+                  <th className="px-6 py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Darbības
+                  </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody className="bg-white divide-y divide-gray-200">
                 {filteredProducts.map((product: any) => (
-                  <tr key={product.id} className="hover:bg-gray-50">
+                  <tr key={product.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-12 h-12 bg-gray-100 rounded-lg overflow-hidden">
-                          {product.images?.[0] ? (
-                            <img
-                              src={product.images[0]}
-                              alt={product.name}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center">
-                              <Package className="w-6 h-6 text-gray-400" />
-                            </div>
-                          )}
-                        </div>
+                      <div className="flex items-center">
+                        {product.images?.[0] && (
+                          <img
+                            src={product.images[0]}
+                            alt={product.name}
+                            className="w-12 h-12 rounded-lg object-cover mr-4"
+                          />
+                        )}
                         <div>
-                          <p className="font-medium text-gray-900">{product.name}</p>
-                          <p className="text-sm text-gray-500 line-clamp-1">
-                            {product.short_description}
+                          <p className="text-sm font-medium text-gray-900 line-clamp-2">
+                            {product.name}
                           </p>
+                          <p className="text-sm text-gray-500">{product.slug}</p>
+                          {product.featured && (
+                            <Badge variant="default" className="mt-1 text-xs">
+                              Izceltais
+                            </Badge>
+                          )}
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-sm font-mono text-gray-900">
-                      {product.sku || '-'}
+                    <td className="px-6 py-4 text-sm text-gray-900 font-mono">
+                      {product.sku}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-900">
-                      {product.navigation_categories?.name || '-'}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm">
-                        <span className="font-medium text-gray-900">
-                          €{(product.sale_price || product.price).toFixed(2)}
-                        </span>
-                        {product.sale_price && (
-                          <span className="text-gray-500 line-through ml-2">
-                            €{product.price.toFixed(2)}
-                          </span>
+                      <div>
+                        {product.sale_price ? (
+                          <>
+                            <span className="line-through text-gray-500">€{product.price}</span>
+                            <span className="ml-2 text-red-600 font-semibold">€{product.sale_price}</span>
+                          </>
+                        ) : (
+                          <span className="font-semibold">€{product.price}</span>
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-4">
-                      <span className={`text-sm font-medium ${
-                        product.stock_quantity < 5 
-                          ? 'text-red-600' 
-                          : product.stock_quantity < 20 
-                            ? 'text-orange-600' 
-                            : 'text-green-600'
-                      }`}>
-                        {product.stock_quantity} gab.
-                      </span>
+                    <td className="px-6 py-4 text-sm text-gray-900">
+                      {product.manage_stock ? (
+                        <div className={`flex items-center ${
+                          product.stock_quantity === 0 ? 'text-red-600' : 
+                          product.stock_quantity < 10 ? 'text-yellow-600' : 'text-green-600'
+                        }`}>
+                          <span className="font-medium">{product.stock_quantity}</span>
+                          <span className="ml-1 text-xs">gab.</span>
+                        </div>
+                      ) : (
+                        <Badge variant="outline" className="text-xs">
+                          Nav ierobežots
+                        </Badge>
+                      )}
                     </td>
                     <td className="px-6 py-4">
-                      <button
-                        onClick={() => toggleStatus(product.id, product.status)}
-                        className={`px-3 py-1 rounded-full text-xs font-medium ${
-                          product.status === 'active'
-                            ? 'bg-green-100 text-green-800'
-                            : product.status === 'inactive'
-                              ? 'bg-red-100 text-red-800'
-                              : 'bg-gray-100 text-gray-800'
-                        }`}
+                      <Badge 
+                        variant={
+                          product.status === 'active' ? 'default' : 
+                          product.status === 'inactive' ? 'secondary' : 'outline'
+                        }
+                        className="text-xs"
                       >
                         {product.status === 'active' ? 'Aktīvs' : 
                          product.status === 'inactive' ? 'Neaktīvs' : 'Melnraksts'}
-                      </button>
+                      </Badge>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button variant="outline" size="sm">
-                            <MoreHorizontal className="w-4 h-4" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-48 p-0" align="end">
-                          <div className="py-2">
-                            <button
-                              onClick={() => handleEdit(product)}
-                              className="flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 w-full text-left transition-colors"
+                      <div className="flex items-center justify-end space-x-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleEdit(product)}
+                          disabled={isLoading}
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => toggleStatus(product.id, product.status, product.name)}
+                          disabled={isLoading}
+                          className={product.status === 'active' ? 'hover:bg-yellow-50' : 'hover:bg-green-50'}
+                        >
+                          {product.status === 'active' ? (
+                            <EyeOff className="w-4 h-4" />
+                          ) : (
+                            <Eye className="w-4 h-4" />
+                          )}
+                        </Button>
+
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button size="sm" variant="outline">
+                              <MoreHorizontal className="w-4 h-4" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-40 p-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
+                              onClick={() => handleDelete(product.id, product.name)}
+                              disabled={isLoading}
                             >
-                              <Pencil className="w-4 h-4" />
-                              <span>Labot</span>
-                            </button>
-                            <a
-                              href={`/produkti/${product.slug}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 w-full text-left transition-colors"
-                            >
-                              <Eye className="w-4 h-4" />
-                              <span>Skatīt</span>
-                            </a>
-                            <div className="border-t border-gray-100 mt-2 pt-2">
-                              <button
-                                onClick={() => handleDelete(product.id)}
-                                className="flex items-center space-x-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 w-full text-left transition-colors"
-                              >
-                                <Trash className="w-4 h-4" />
-                                <span>Dzēst</span>
-                              </button>
-                            </div>
-                          </div>
-                        </PopoverContent>
-                      </Popover>
+                              <Trash className="w-4 h-4 mr-2" />
+                              Dzēst
+                            </Button>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        ) : (
-          <div className="text-center py-12">
-            <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Nav produktu</h3>
-            <p className="text-gray-500 mb-6">
-              {searchTerm ? 'Nav atrasts neviens produkts ar norādītajiem kritērijiem' : 'Sāciet, pievienojot savu pirmo produktu'}
-            </p>
-            <Button onClick={handleAdd} className="bg-gradient-to-r from-emerald-500 to-teal-600">
-              <Plus className="w-4 h-4 mr-2" />
-              Pievienot produktu
-            </Button>
-          </div>
         )}
       </div>
 
+      {/* Product Modal */}
       <ProductModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         initialData={selected}
-        onSave={mutate}
+        onSave={() => {
+          mutate()
+          setSelected(null)
+        }}
       />
     </div>
   )

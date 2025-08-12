@@ -3,19 +3,21 @@ import { createClient } from '@lib/supabase/server'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ slug: string }> }
+  { params }: { params: { slug: string } }
 ) {
   try {
-    const resolvedParams = await params
-    
-    if (!resolvedParams || !resolvedParams.slug) {
-      return NextResponse.json({ error: 'Slug parameter is required' }, { status: 400 })
+    const { slug } = await params;
+
+    if (!slug || typeof slug !== 'string') {
+      return NextResponse.json(
+        { error: 'Nepareizs produkta identifikators' }, 
+        { status: 400 }
+      )
     }
-    
-    const { slug } = resolvedParams
+
     const supabase = await createClient()
 
-    const { data, error } = await supabase
+    const { data: product, error } = await supabase
       .from('products')
       .select(`
         *,
@@ -27,17 +29,42 @@ export async function GET(
       .single()
 
     if (error) {
-      console.error('Supabase error:', error)
-      return NextResponse.json({ error: 'Product not found' }, { status: 404 })
+      if (error.code === 'PGRST116') {
+        return NextResponse.json(
+          { error: 'Produkts nav atrasts' }, 
+          { status: 404 }
+        )
+      }
+      
+      console.error('Database error:', error)
+      return NextResponse.json(
+        { error: 'Datu bāzes kļūda' }, 
+        { status: 500 }
+      )
     }
 
-    return NextResponse.json(data, {
+    // Add view tracking (optional)
+    try {
+      await supabase.rpc('increment_product_views', { 
+        product_id: product.id 
+      })
+    } catch (viewError) {
+      // Non-critical error, don't fail the request
+      console.log('View tracking failed:', viewError)
+    }
+
+    return NextResponse.json(product, {
       headers: {
-        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600'
+        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+        'X-Content-Type-Options': 'nosniff'
       }
     })
-  } catch (err) {
-    console.error('Route error:', err)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+
+  } catch (error) {
+    console.error('Product fetch error:', error)
+    return NextResponse.json(
+      { error: 'Servera kļūda' }, 
+      { status: 500 }
+    )
   }
 }

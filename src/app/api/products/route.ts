@@ -1,234 +1,427 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@lib/supabase/server'
+import { ProductValidation } from '@/components/admin/products/ProductValidation'
+
+// Rate limiting cache
+const requestCounts = new Map<string, { count: number; resetTime: number }>()
+
+function getRateLimitKey(request: NextRequest): string {
+  const forwarded = request.headers.get('x-forwarded-for')
+  const realIp = request.headers.get('x-real-ip')
+  return forwarded?.split(',')[0] || realIp || 'unknown'
+}
+
+function checkRateLimit(key: string, maxRequests = 100, windowMs = 60000): boolean {
+  const now = Date.now()
+  const record = requestCounts.get(key)
+  
+  if (!record || now > record.resetTime) {
+    requestCounts.set(key, { count: 1, resetTime: now + windowMs })
+    return true
+  }
+  
+  if (record.count >= maxRequests) {
+    return false
+  }
+  
+  record.count++
+  return true
+}
+
+// CSRF aizsardzība
+function validateCSRF(request: NextRequest): boolean {
+  const requestedWith = request.headers.get('x-requested-with')
+  const origin = request.headers.get('origin')
+  const referer = request.headers.get('referer')
+  
+  if (request.method === 'GET') {
+      return true
+  }
+
+  if (requestedWith !== 'XMLHttpRequest') {
+    return false
+  }
+  
+  // Pārbaudām origin/referer
+  if (process.env.NODE_ENV === 'production') {
+    const allowedOrigins = [process.env.NEXT_PUBLIC_SITE_URL]
+    if (!origin || !allowedOrigins.includes(origin)) {
+      return false
+    }
+  }
+  
+  return true
+}
+
+// Admin tiesību pārbaude
+async function checkAdminPermissions(supabase: any): Promise<{ user: any; isAdmin: boolean }> {
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  
+  if (authError || !user) {
+    throw new Error('Neautorizēts lietotājs')
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  if (profileError || profile?.role !== 'admin') {
+    throw new Error('Nav admin tiesību')
+  }
+
+  return { user, isAdmin: true }
+}
 
 export async function GET(request: NextRequest) {
-  const supabase = await createClient()
-  const { searchParams } = new URL(request.url)
-  
-  const page = parseInt(searchParams.get('page') || '1')
-  const limit = parseInt(searchParams.get('limit') || '12')
-  const category = searchParams.get('category')
-  const categories = searchParams.get('categories')
-  const minPrice = searchParams.get('minPrice')
-  const maxPrice = searchParams.get('maxPrice')
-  const inStock = searchParams.get('inStock')
-  const featured = searchParams.get('featured')
-  const search = searchParams.get('search')
-  const sort = searchParams.get('sort') || 'name'
-  const admin = searchParams.get('admin') === 'true'
-
-  let query = supabase
-    .from('products')
-    .select(`
-      *,
-      navigation_categories!category_id(id, name, slug),
-      navigation_subcategories!subcategory_id(id, name, slug)
-    `)
-
-  if (!admin) {
-    query = query.eq('status', 'active')
-  }
-
-  // Filtri
-  if (category) {
-    query = query.eq('category_id', category)
-  }
-  
-  if (categories) {
-    const categorySlugs = categories.split(',')
-    query = query.in('navigation_categories.slug', categorySlugs)
-  }
-  
-  if (minPrice) {
-    query = query.gte('price', parseInt(minPrice))
-  }
-  
-  if (maxPrice) {
-    query = query.lte('price', parseInt(maxPrice))
-  }
-  
-  if (inStock === 'true') {
-    query = query.gt('stock_quantity', 0)
-  }
-  
-  if (featured === 'true') {
-    query = query.eq('featured', true)
-  }
-  
-  if (search) {
-    query = query.or(`name.ilike.%${search}%, description.ilike.%${search}%`)
-  }
-
-  switch(sort) {
-    case 'name':
-      query = query.order('name', { ascending: true })
-      break
-    case 'price_asc':
-      query = query.order('price', { ascending: true })
-      break
-    case 'price_desc':
-      query = query.order('price', { ascending: false })
-      break
-    case 'created_at':
-      query = query.order('created_at', { ascending: false })
-      break
-    case 'featured':
-      query = query.order('featured', { ascending: false }).order('name', { ascending: true })
-      break
-    default:
-      query = query.order('name', { ascending: true })
-  }
-
-  const from = (page - 1) * limit
-  const to = from + limit - 1
-  
-  query = query.range(from, to)
-
-  const { data, error, count } = await query
-
-  if (error) {
-    console.error('Database query error:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
-  }
-
-  return NextResponse.json({
-    products: data || [],
-    pagination: {
-      page,
-      limit,
-      total: count || 0,
-      totalPages: Math.ceil((count || 0) / limit)
+  try {
+    // Rate limiting
+    const rateLimitKey = getRateLimitKey(request)
+    if (!checkRateLimit(rateLimitKey, 200, 60000)) { // 200 requests per minute for GET
+      return NextResponse.json(
+        { error: 'Pārāk daudz pieprasījumu. Mēģiniet vēlāk.' }, 
+        { status: 429 }
+      )
     }
-  }, {
-    headers: {
-      'Cache-Control': admin ? 'no-cache' : 'public, s-maxage=60, stale-while-revalidate=300'
+
+    const supabase = await createClient()
+    const { searchParams } = new URL(request.url)
+    
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1'))
+    const limit = Math.min(50, Math.max(1, parseInt(searchParams.get('limit') || '12'))) // Max 50 items per page
+    const admin = searchParams.get('admin') === 'true'
+
+    // Ja admin pieprasījums, pārbaudām tiesības
+    if (admin) {
+      await checkAdminPermissions(supabase)
     }
-  })
-}
 
-export async function PUT(req: Request) {
-  const supabase = await createClient()
-  
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+    let query = supabase
+      .from('products')
+      .select(`
+        *,
+        navigation_categories!category_id(id, name, slug),
+        navigation_subcategories!subcategory_id(id, name, slug)
+      `)
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
+    if (!admin) {
+      query = query.eq('status', 'active')
+    }
 
-  if (profile?.role !== 'admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
+    // Sanitizējam search parametrus
+    const search = searchParams.get('search')?.trim().substring(0, 100) // Max 100 chars
+    if (search) {
+      // Escapējam SQL special characters
+      const sanitizedSearch = search.replace(/[%_\\]/g, '\\$&')
+      query = query.or(`name.ilike.%${sanitizedSearch}%, description.ilike.%${sanitizedSearch}%`)
+    }
 
-  const body = await req.json()
+    // Citi filtri ar validāciju
+    const category = searchParams.get('category')
+    if (category && /^[a-zA-Z0-9-]+$/.test(category)) {
+      query = query.eq('category_id', category)
+    }
 
-  const { 
-    id, 
-    navigation_categories, 
-    navigation_subcategories, 
-    created_at,
-    created_by,
-    ...updateData 
-  } = body
+    const featured = searchParams.get('featured')
+    if (featured === 'true') {
+      query = query.eq('featured', true)
+    }
 
-  if (!id) {
-    return NextResponse.json({ error: 'ID is required' }, { status: 400 })
-  }
+    const inStock = searchParams.get('inStock')
+    if (inStock === 'true') {
+      query = query.gt('stock_quantity', 0)
+    }
 
-  const { data, error } = await supabase
-    .from('products')
-    .update({
-      ...updateData,
-      updated_at: new Date().toISOString()
+    const minPrice = parseInt(searchParams.get('minPrice') || '0')
+    const maxPrice = parseInt(searchParams.get('maxPrice') || '999999')
+    if (minPrice >= 0 && maxPrice > minPrice) {
+      query = query.gte('price', minPrice).lte('price', maxPrice)
+    }
+
+    // Kārtošana
+    const allowedSorts = ['name', 'price_asc', 'price_desc', 'created_at', 'featured']
+    const sort = searchParams.get('sort') || 'name'
+    
+    if (allowedSorts.includes(sort)) {
+      switch(sort) {
+        case 'price_asc':
+          query = query.order('price', { ascending: true })
+          break
+        case 'price_desc':
+          query = query.order('price', { ascending: false })
+          break
+        case 'created_at':
+          query = query.order('created_at', { ascending: false })
+          break
+        case 'featured':
+          query = query.order('featured', { ascending: false }).order('name', { ascending: true })
+          break
+        default:
+          query = query.order('name', { ascending: true })
+      }
+    }
+
+    const from = (page - 1) * limit
+    const to = from + limit - 1
+    
+    query = query.range(from, to)
+
+    const { data, error, count } = await query
+
+    if (error) {
+      console.error('Database query error:', error)
+      return NextResponse.json({ error: 'Datu bāzes kļūda' }, { status: 500 })
+    }
+
+    return NextResponse.json({
+      products: data || [],
+      pagination: {
+        page,
+        limit,
+        total: count || 0,
+        totalPages: Math.ceil((count || 0) / limit)
+      }
+    }, {
+      headers: {
+        'Cache-Control': admin ? 'no-cache' : 'public, s-maxage=300, stale-while-revalidate=600',
+        'X-Content-Type-Options': 'nosniff',
+        'X-Frame-Options': 'DENY'
+      }
     })
-    .eq('id', id)
-    .select('*')
 
-  if (error) {
-    console.error('Supabase update error:', error)
-    return NextResponse.json({ error: error.message }, { status: 400 })
+  } catch (error) {
+    console.error('Products GET error:', error)
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Servera kļūda' }, 
+      { status: error instanceof Error && error.message.includes('tiesību') ? 403 : 500 }
+    )
   }
-
-  return NextResponse.json(data?.[0])
-}
-
-export async function DELETE(req: Request) {
-  const supabase = await createClient()
-  
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
-
-  const { id } = await req.json()
-
-  if (!id) {
-    return NextResponse.json({ error: 'ID is required' }, { status: 400 })
-  }
-
-  const { error } = await supabase
-    .from('products')
-    .delete()
-    .eq('id', id)
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 })
-  }
-
-  return NextResponse.json({ success: true })
 }
 
 export async function POST(req: Request) {
-  const supabase = await createClient()
+  try {
+    const request = req as NextRequest
+    
+    // Rate limiting - mazāk pieprasījumu POST operācijām
+    const rateLimitKey = getRateLimitKey(request)
+    if (!checkRateLimit(rateLimitKey, 20, 60000)) { // 20 creates per minute
+      return NextResponse.json(
+        { error: 'Pārāk daudz pieprasījumu. Mēģiniet vēlāk.' }, 
+        { status: 429 }
+      )
+    }
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    // CSRF aizsardzība
+    if (!validateCSRF(request)) {
+      return NextResponse.json({ error: 'Neatļauts pieprasījums' }, { status: 403 })
+    }
+
+    const supabase = await createClient()
+    const { user } = await checkAdminPermissions(supabase)
+
+    const body = await req.json()
+    
+    // Server-side validācija
+    const validationErrors = ProductValidation.validateProduct(body)
+    if (validationErrors.length > 0) {
+      return NextResponse.json({ 
+        error: 'Validācijas kļūdas', 
+        validationErrors 
+      }, { status: 400 })
+    }
+
+    // Pārbaudām slug unikalitāti
+    const { data: existingProduct } = await supabase
+      .from('products')
+      .select('id')
+      .eq('slug', body.slug)
+      .single()
+
+    if (existingProduct) {
+      return NextResponse.json({ 
+        error: 'Produkts ar šādu slug jau eksistē' 
+      }, { status: 400 })
+    }
+
+    // Izveidojam produktu
+    const { data, error } = await supabase
+      .from('products')
+      .insert([{
+        ...body,
+        created_by: user.id,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }])
+      .select(`
+        *,
+        navigation_categories:category_id(id, name, slug),
+        navigation_subcategories:subcategory_id(id, name, slug)
+      `)
+
+    if (error) {
+      console.error('Product creation error:', error)
+      return NextResponse.json({ error: 'Neizdevās izveidot produktu' }, { status: 400 })
+    }
+
+    return NextResponse.json(data?.[0], { status: 201 })
+
+  } catch (error) {
+    console.error('Products POST error:', error)
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Servera kļūda' }, 
+      { status: error instanceof Error && error.message.includes('tiesību') ? 403 : 500 }
+    )
   }
+}
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
+export async function PUT(req: Request) {
+  try {
+    const request = req as NextRequest
+    
+    // Rate limiting
+    const rateLimitKey = getRateLimitKey(request)
+    if (!checkRateLimit(rateLimitKey, 30, 60000)) { // 30 updates per minute
+      return NextResponse.json(
+        { error: 'Pārāk daudz pieprasījumu. Mēģiniet vēlāk.' }, 
+        { status: 429 }
+      )
+    }
 
-  if (profile?.role !== 'admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    // CSRF aizsardzība
+    if (!validateCSRF(request)) {
+      return NextResponse.json({ error: 'Neatļauts pieprasījums' }, { status: 403 })
+    }
+
+    const supabase = await createClient()
+    await checkAdminPermissions(supabase)
+
+    const body = await req.json()
+    const { id, navigation_categories, navigation_subcategories, created_at, created_by, ...updateData } = body
+
+    if (!id || typeof id !== 'string') {
+      return NextResponse.json({ error: 'ID ir obligāts' }, { status: 400 })
+    }
+
+    // Server-side validācija
+    const validationErrors = ProductValidation.validateProduct(updateData)
+    if (validationErrors.length > 0) {
+      return NextResponse.json({ 
+        error: 'Validācijas kļūdas', 
+        validationErrors 
+      }, { status: 400 })
+    }
+
+    // Pārbaudām vai produkts eksistē
+    const { data: existingProduct } = await supabase
+      .from('products')
+      .select('id, slug')
+      .eq('id', id)
+      .single()
+
+    if (!existingProduct) {
+      return NextResponse.json({ error: 'Produkts nav atrasts' }, { status: 404 })
+    }
+
+    // Pārbaudām slug unikalitāti (ja slug mainās)
+    if (updateData.slug && updateData.slug !== existingProduct.slug) {
+      const { data: slugExists } = await supabase
+        .from('products')
+        .select('id')
+        .eq('slug', updateData.slug)
+        .neq('id', id)
+        .single()
+
+      if (slugExists) {
+        return NextResponse.json({ 
+          error: 'Produkts ar šādu slug jau eksistē' 
+        }, { status: 400 })
+      }
+    }
+
+    const { data, error } = await supabase
+      .from('products')
+      .update({
+        ...updateData,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select('*')
+
+    if (error) {
+      console.error('Product update error:', error)
+      return NextResponse.json({ error: 'Neizdevās atjaunot produktu' }, { status: 400 })
+    }
+
+    return NextResponse.json(data?.[0])
+
+  } catch (error) {
+    console.error('Products PUT error:', error)
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Servera kļūda' }, 
+      { status: error instanceof Error && error.message.includes('tiesību') ? 403 : 500 }
+    )
   }
+}
 
-  const body = await req.json()
-  
-  const { data, error } = await supabase
-    .from('products')
-    .insert([{
-      ...body,
-      created_by: user.id,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    }])
-    .select(`
-      *,
-      navigation_categories:category_id(id, name, slug),
-      navigation_subcategories:subcategory_id(id, name, slug)
-    `)
+export async function DELETE(req: Request) {
+  try {
+    const request = req as NextRequest
+    
+    // Rate limiting - vēl mazāk dzēšanas operāciju
+    const rateLimitKey = getRateLimitKey(request)
+    if (!checkRateLimit(rateLimitKey, 10, 60000)) { // 10 deletes per minute
+      return NextResponse.json(
+        { error: 'Pārāk daudz pieprasījumu. Mēģiniet vēlāk.' }, 
+        { status: 429 }
+      )
+    }
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 })
+    // CSRF aizsardzība
+    if (!validateCSRF(request)) {
+      return NextResponse.json({ error: 'Neatļauts pieprasījums' }, { status: 403 })
+    }
+
+    const supabase = await createClient()
+    await checkAdminPermissions(supabase)
+
+    const { id } = await req.json()
+
+    if (!id || typeof id !== 'string') {
+      return NextResponse.json({ error: 'ID ir obligāts' }, { status: 400 })
+    }
+
+    // Pārbaudām vai produkts eksistē
+    const { data: existingProduct } = await supabase
+      .from('products')
+      .select('id, name')
+      .eq('id', id)
+      .single()
+
+    if (!existingProduct) {
+      return NextResponse.json({ error: 'Produkts nav atrasts' }, { status: 404 })
+    }
+
+    const { error } = await supabase
+      .from('products')
+      .delete()
+      .eq('id', id)
+
+    if (error) {
+      console.error('Product deletion error:', error)
+      return NextResponse.json({ error: 'Neizdevās dzēst produktu' }, { status: 400 })
+    }
+
+    return NextResponse.json({ 
+      success: true, 
+      message: `Produkts "${existingProduct.name}" dzēsts veiksmīgi` 
+    })
+
+  } catch (error) {
+    console.error('Products DELETE error:', error)
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Servera kļūda' }, 
+      { status: error instanceof Error && error.message.includes('tiesību') ? 403 : 500 }
+    )
   }
-
-  return NextResponse.json(data?.[0])
 }
