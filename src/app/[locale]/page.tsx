@@ -1,11 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useMemo } from 'react';
 import Header from '@/components/Header';
 import MainNavigation from '@/components/MainNavigation';
 import Slider from '@/components/Slider';
 import { Loading } from '@/components/ui/Loading';
-import { useLoading } from '@hooks/useLoading';
+import useSWR from 'swr';
 
 interface Slide {
   show_text: boolean
@@ -35,47 +35,40 @@ interface SlideApiResponse {
   is_active: boolean
 }
 
+// Fast fetcher function
+const fetcher = (url: string) => fetch(url).then(res => {
+  if (!res.ok) throw new Error('Failed to fetch slides')
+  return res.json()
+})
+
 export default function HomePage() {
-  const [slides, setSlides] = useState<Slide[]>([]);
-  const { isLoading, withLoading } = useLoading(false);
-
-  const fetchSlides = useCallback(async () => {
-    try {
-      const base =
-        process.env.NODE_ENV === 'production'
-          ? 'https://martas-parks.vercel.app'
-          : 'http://localhost:3000';
-
-      const res = await fetch(`${base}/api/slider?t=${Date.now()}`, { 
-        cache: 'no-store',
-        headers: {
-          'Cache-Control': 'no-cache'
-        }
-      });
-      if (!res.ok) throw new Error('Failed to fetch slides');
-      const slidesData: SlideApiResponse[] = await res.json();
-
-      const adaptedSlides: Slide[] = slidesData.map((slide: SlideApiResponse) => ({
-        ...slide,
-        show_text: slide.show_text ?? true,
-        subtitle: slide.subtitle || '',
-        description: slide.description || '',
-        button_text: slide.button_text || '',
-        button_url: slide.button_url || ''
-      }));
-
-      setSlides(adaptedSlides);
-    } catch (error) {
-      console.error('Error fetching slides:', error);
-      setSlides([]);
+  // SWR instead of manual fetch
+  const { data: slidesData, error } = useSWR<SlideApiResponse[]>(
+    '/api/slider',
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      dedupingInterval: 30000, // 30 seconds cache
     }
-  }, []);
+  )
 
-  useEffect(() => {
-    withLoading(fetchSlides);
-  }, [withLoading, fetchSlides]);
+  // Memoize adapted slides
+  const slides = useMemo(() => {
+    if (!slidesData) return []
+    
+    return slidesData.map((slide: SlideApiResponse): Slide => ({
+      ...slide,
+      show_text: slide.show_text ?? true,
+      subtitle: slide.subtitle || '',
+      description: slide.description || '',
+      button_text: slide.button_text || '',
+      button_url: slide.button_url || ''
+    }))
+  }, [slidesData])
 
-  if (isLoading) {
+  // Loading state
+  if (!slidesData && !error) {
     return (
       <Loading
         fullScreen
@@ -83,6 +76,11 @@ export default function HomePage() {
         text="Lūdzu, uzgaidiet. Ielādējam..."
       />
     );
+  }
+
+  // Error state - show page anyway with empty slides
+  if (error) {
+    console.error('Error fetching slides:', error)
   }
 
   return (
