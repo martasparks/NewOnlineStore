@@ -19,6 +19,18 @@ import ImageUploadSection from './ImageUploadSection'
 import { Product, Category, Subcategory, ProductDimensions } from './types'
 import { ProductValidation } from './ProductValidation'
 
+// Type for validation errors
+interface ValidationError {
+  field: string
+  message: string
+}
+
+// Type for API error response
+interface APIErrorResponse {
+  error: string
+  validationErrors?: ValidationError[]
+}
+
 interface ProductModalProps {
   open: boolean
   onClose: () => void
@@ -285,7 +297,7 @@ useEffect(() => {
         console.log('Response status:', res.status)
         console.log('Response headers:', Object.fromEntries(res.headers.entries()))
 
-        const data = await res.json()
+        const data: APIErrorResponse = await res.json()
         console.log('Response data:', data)
 
         if (!res.ok) {
@@ -305,7 +317,7 @@ useEffect(() => {
           }
           
           if (validationErrors.length > 0) {
-            throw new Error(`Validācijas kļūdas: ${validationErrors.map((e: any) => e.message).join(', ')}`)
+            throw new Error(`Validācijas kļūdas: ${validationErrors.map((e: ValidationError) => e.message).join(', ')}`)
           }
           
           throw new Error(errorMessage)

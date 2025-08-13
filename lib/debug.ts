@@ -1,3 +1,7 @@
+/**
+ * Debug utility functions for troubleshooting API issues
+ */
+
 export interface ApiDebugInfo {
   timestamp: string
   method: string
@@ -12,7 +16,7 @@ export interface ErrorDebugInfo {
   errorType: string
   errorMessage: string
   timestamp: string
-  additional?: Record<string, any>
+  additional?: Record<string, unknown>
 }
 
 export function createDebugInfo(request: Request): ApiDebugInfo {
@@ -28,7 +32,7 @@ export function createDebugInfo(request: Request): ApiDebugInfo {
         headers[key] = value
       }
     })
-  } catch (error) {
+  } catch {
     headers['error'] = 'Could not extract headers'
   }
 
@@ -45,7 +49,7 @@ export function createDebugInfo(request: Request): ApiDebugInfo {
 export function createErrorDebugInfo(
   step: string, 
   error: unknown, 
-  additional?: Record<string, any>
+  additional?: Record<string, unknown>
 ): ErrorDebugInfo {
   return {
     step,
@@ -97,10 +101,10 @@ export function validateEnvironment(): {
 export function checkCSRFRequirements(request: Request): {
   isValid: boolean
   issues: string[]
-  details: Record<string, any>
+  details: Record<string, unknown>
 } {
   const issues: string[] = []
-  const details: Record<string, any> = {}
+  const details: Record<string, unknown> = {}
   
   const requestedWith = request.headers.get('x-requested-with')
   const origin = request.headers.get('origin')
@@ -140,7 +144,7 @@ export function checkCSRFRequirements(request: Request): {
   }
 }
 
-export function createAuthDebugInfo(userId?: string, role?: string): Record<string, any> {
+export function createAuthDebugInfo(userId?: string, role?: string): Record<string, unknown> {
   return {
     hasUser: !!userId,
     userId: userId ? `${userId.substring(0, 8)}...` : 'none', // Partial ID for privacy
@@ -150,7 +154,7 @@ export function createAuthDebugInfo(userId?: string, role?: string): Record<stri
 }
 
 // Helper for rate limiting debug
-export function createRateLimitDebugInfo(key: string, count: number, limit: number): Record<string, any> {
+export function createRateLimitDebugInfo(key: string, count: number, limit: number): Record<string, unknown> {
   return {
     key: key.substring(0, 10) + '...', // Partial key for privacy
     currentCount: count,
