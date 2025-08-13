@@ -361,7 +361,7 @@ export default function ProductGallery({ images, alt, priority = false }: Produc
         )}
 
       {isZoomed && (
-        <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[9999] bg-black/95 flex items-center justify-center p-4">
           <div className="relative max-w-5xl max-h-full w-full h-full flex items-center justify-center">
             {!imageError.has(currentImage) && images[currentImage] ? (
               <div 
@@ -485,7 +485,7 @@ export default function ProductGallery({ images, alt, priority = false }: Produc
       )}
 
       {isFullscreen && (
-        <div className="fixed inset-0 z-50 bg-black flex items-center justify-center">
+        <div className="fixed inset-0 z-[9999] bg-black flex items-center justify-center">
           <div className="relative w-full h-full flex items-center justify-center p-4">
             {!imageError.has(currentImage) && images[currentImage] ? (
               <div 

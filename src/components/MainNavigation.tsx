@@ -4,7 +4,6 @@ import React, { useState, useMemo } from "react"
 import { ChevronDown } from "lucide-react"
 import Link from "next/link"
 import useSWR from 'swr'
-import { Loading } from "@/components/ui/Loading"
 
 type Subcategory = {
   id: string

@@ -4,7 +4,6 @@ import { useMemo } from 'react';
 import Header from '@/components/Header';
 import MainNavigation from '@/components/MainNavigation';
 import Slider from '@/components/Slider';
-import { Loading } from '@/components/ui/Loading';
 import useSWR from 'swr';
 
 interface Slide {
