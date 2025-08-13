@@ -6,6 +6,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const locale = searchParams.get('locale')
   const namespace = searchParams.get('namespace')
+  const admin = searchParams.get('admin') === 'true'
 
   let query = supabase
     .from('translations')
@@ -27,11 +28,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  return NextResponse.json(data, {
-    headers: {
-      'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300'
-    }
-  })
+  const cacheHeaders = admin 
+    ? { 'Cache-Control': 'no-cache, no-store, must-revalidate' }
+    : { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300' }
+
+  return NextResponse.json(data, { headers: cacheHeaders })
 }
 
 export async function POST(req: Request) {

@@ -45,10 +45,11 @@ export default function MainNavigation() {
   useEffect(() => {
     const fetchData = async () => {
       withLoading(async () => {
-        const res = await fetch('/api/navigation/categories')
+        const adminParam = window.location.pathname.includes('/admin') ? '?admin=true' : ''
+        const res = await fetch(`/api/navigation/categories${adminParam}`)
         const cats: CategoryApiResponse[] = await res.json()
 
-        const subRes = await fetch('/api/navigation/subcategories')
+        const subRes = await fetch(`/api/navigation/subcategories${adminParam}`)
         const subs: SubcategoryApiResponse[] = await subRes.json()
 
         const combined: Category[] = cats.map((cat: CategoryApiResponse) => ({

@@ -1,8 +1,11 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '../../../../../lib/supabase/server'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const supabase = await createClient()
+  const { searchParams } = new URL(request.url)
+  const admin = searchParams.get('admin') === 'true'
+  
   const { data, error } = await supabase
     .from('navigation_subcategories')
     .select('*')
@@ -10,11 +13,11 @@ export async function GET() {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   
-    return NextResponse.json(data, {
-    headers: {
-      'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300'
-    }
-  })
+  const cacheHeaders = admin 
+    ? { 'Cache-Control': 'no-cache, no-store, must-revalidate' }
+    : { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300' }
+
+  return NextResponse.json(data, { headers: cacheHeaders })
 }
 
 export async function POST(req: Request) {
