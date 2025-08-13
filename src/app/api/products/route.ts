@@ -76,12 +76,14 @@ function validateCSRF(request: NextRequest): boolean {
   }
 
   if (requestedWith !== 'XMLHttpRequest') {
+    console.error('CSRF validation failed: Missing X-Requested-With header')
     return false
   }
   
   if (process.env.NODE_ENV === 'production') {
-    const allowedOrigins = [process.env.NEXT_PUBLIC_SITE_URL]
+    const allowedOrigins = [process.env.NEXT_PUBLIC_SITE_URL].filter(Boolean)
     if (!origin || !allowedOrigins.includes(origin)) {
+      console.error('CSRF validation failed: Invalid origin', { origin, allowedOrigins })
       return false
     }
   }
@@ -93,6 +95,7 @@ async function checkAdminPermissions(supabase: SupabaseClient): Promise<{ user: 
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   
   if (authError || !user) {
+    console.error('Auth error:', authError)
     throw new Error('Neautorizēts lietotājs')
   }
 
@@ -102,7 +105,13 @@ async function checkAdminPermissions(supabase: SupabaseClient): Promise<{ user: 
     .eq('id', user.id)
     .single()
 
-  if (profileError || profile?.role !== 'admin') {
+  if (profileError) {
+    console.error('Profile fetch error:', profileError)
+    throw new Error('Nav admin tiesību')
+  }
+
+  if (profile?.role !== 'admin') {
+    console.error('User role check failed:', { userId: user.id, role: profile?.role })
     throw new Error('Nav admin tiesību')
   }
 
@@ -251,8 +260,16 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(req: Request) {
+  const request = req as NextRequest
+  
   try {
-    const request = req as NextRequest
+    console.log('=== POST REQUEST DEBUG INFO ===')
+    console.log('Method:', request.method)
+    console.log('Headers (partial):', {
+      'x-requested-with': request.headers.get('x-requested-with'),
+      'origin': request.headers.get('origin'),
+      'content-type': request.headers.get('content-type')
+    })
     
     const rateLimitKey = getRateLimitKey(request)
     if (!checkRateLimit(rateLimitKey, 20, 60000)) {
@@ -262,8 +279,19 @@ export async function POST(req: Request) {
       )
     }
 
-    if (!validateCSRF(request)) {
-      return NextResponse.json({ error: 'Neatļauts pieprasījums' }, { status: 403 })
+    const csrfValid = validateCSRF(request)
+    console.log('POST CSRF validation result:', csrfValid)
+    
+    if (!csrfValid) {
+      console.error('CSRF validation failed for POST request')
+      return NextResponse.json({ 
+        error: 'Neatļauts pieprasījums - CSRF validācija neizdevās',
+        debug: {
+          hasXRequestedWith: request.headers.get('x-requested-with') === 'XMLHttpRequest',
+          origin: request.headers.get('origin'),
+          environment: process.env.NODE_ENV
+        }
+      }, { status: 403 })
     }
 
     const supabase = await createClient()
@@ -363,46 +391,120 @@ export async function POST(req: Request) {
 }
 
 export async function PUT(req: Request) {
+  const request = req as NextRequest
+  
   try {
-    const request = req as NextRequest
+    console.log('=== PUT REQUEST DEBUG INFO ===')
+    console.log('Method:', request.method)
+    console.log('URL:', request.url)
+    console.log('Headers:', Object.fromEntries(request.headers.entries()))
     
     const rateLimitKey = getRateLimitKey(request)
+    console.log('Rate limit key:', rateLimitKey)
+    
     if (!checkRateLimit(rateLimitKey, 30, 60000)) {
+      console.log('Rate limit exceeded for key:', rateLimitKey)
       return NextResponse.json(
         { error: 'Pārāk daudz pieprasījumu. Mēģiniet vēlāk.' }, 
         { status: 429 }
       )
     }
 
-    if (!validateCSRF(request)) {
-      return NextResponse.json({ error: 'Neatļauts pieprasījums' }, { status: 403 })
+    console.log('Rate limit check passed')
+    
+    const csrfValid = validateCSRF(request)
+    console.log('CSRF validation result:', csrfValid)
+    
+    if (!csrfValid) {
+      console.error('CSRF validation failed for PUT request')
+      return NextResponse.json({ 
+        error: 'Neatļauts pieprasījums - CSRF validācija neizdevās',
+        debug: {
+          hasXRequestedWith: request.headers.get('x-requested-with') === 'XMLHttpRequest',
+          origin: request.headers.get('origin'),
+          environment: process.env.NODE_ENV,
+          allowedOrigin: process.env.NEXT_PUBLIC_SITE_URL
+        }
+      }, { status: 403 })
     }
 
-    const supabase = await createClient()
-    await checkAdminPermissions(supabase)
+    console.log('CSRF validation passed')
 
-    const body = await req.json()
+    const supabase = await createClient()
+    console.log('Supabase client created')
+    
+    let adminCheckResult
+    try {
+      adminCheckResult = await checkAdminPermissions(supabase)
+      console.log('Admin permissions check passed:', adminCheckResult)
+    } catch (adminError) {
+      console.error('Admin permissions check failed:', adminError)
+      return NextResponse.json({ 
+        error: adminError instanceof Error ? adminError.message : 'Nav admin tiesību',
+        debug: {
+          step: 'admin_check_failed',
+          errorMessage: adminError instanceof Error ? adminError.message : 'Unknown admin error'
+        }
+      }, { status: 403 })
+    }
+
+    let body
+    try {
+      body = await req.json()
+      console.log('Request body parsed:', Object.keys(body))
+    } catch (parseError) {
+      console.error('JSON parse error:', parseError)
+      return NextResponse.json({ 
+        error: 'Nederīgs JSON formāts',
+        debug: { step: 'json_parse_failed' }
+      }, { status: 400 })
+    }
+
     const { id } = body
 
     if (!id || typeof id !== 'string') {
-      return NextResponse.json({ error: 'ID ir obligāts' }, { status: 400 })
+      console.error('Invalid or missing ID:', id)
+      return NextResponse.json({ 
+        error: 'ID ir obligāts un jābūt string formātā',
+        debug: { providedId: id, idType: typeof id }
+      }, { status: 400 })
     }
+
+    console.log('Updating product with ID:', id)
 
     const excludedFields = ['id', 'navigation_categories', 'navigation_subcategories', 'created_at', 'created_by']
     const updateData = Object.fromEntries(
       Object.entries(body).filter(([key]) => !excludedFields.includes(key))
     )
 
-    const { data: existingProduct } = await supabase
+    console.log('Update data fields:', Object.keys(updateData))
+
+    // Pārbaudām, vai produkts eksistē
+    const { data: existingProduct, error: fetchError } = await supabase
       .from('products')
       .select('id, slug')
       .eq('id', id)
       .single()
 
-    if (!existingProduct) {
-      return NextResponse.json({ error: 'Produkts nav atrasts' }, { status: 404 })
+    if (fetchError) {
+      console.error('Error fetching existing product:', fetchError)
+      return NextResponse.json({ 
+        error: 'Kļūda meklējot produktu',
+        debug: { step: 'fetch_existing_product', dbError: fetchError }
+      }, { status: 500 })
     }
 
+    if (!existingProduct) {
+      console.error('Product not found with ID:', id)
+      return NextResponse.json({ 
+        error: 'Produkts nav atrasts',
+        debug: { step: 'product_not_found', searchedId: id }
+      }, { status: 404 })
+    }
+
+    console.log('Existing product found:', existingProduct)
+
+    // Pārbaudām slug unikalitāti
     if (updateData.slug && updateData.slug !== existingProduct.slug) {
       const { data: slugExists } = await supabase
         .from('products')
@@ -412,12 +514,15 @@ export async function PUT(req: Request) {
         .single()
 
       if (slugExists) {
+        console.error('Slug already exists:', updateData.slug)
         return NextResponse.json({ 
-          error: 'Produkts ar šādu slug jau eksistē' 
+          error: 'Produkts ar šādu slug jau eksistē',
+          debug: { step: 'slug_exists', slug: updateData.slug }
         }, { status: 400 })
       }
     }
 
+    // Pārbaudām group_id
     if (updateData.group_id) {
       const { data: groupExists } = await supabase
         .from('products')
@@ -427,8 +532,10 @@ export async function PUT(req: Request) {
         .single()
         
       if (!groupExists) {
+        console.error('Group does not exist:', updateData.group_id)
         return NextResponse.json({ 
-          error: 'Norādītā grupa neeksistē' 
+          error: 'Norādītā grupa neeksistē',
+          debug: { step: 'group_not_exists', groupId: updateData.group_id }
         }, { status: 400 })
       }
     }
@@ -438,6 +545,8 @@ export async function PUT(req: Request) {
       updated_at: new Date().toISOString()
     }
 
+    console.log('Final update payload:', updatePayload)
+
     const { data, error } = await supabase
       .from('products')
       .update(updatePayload)
@@ -446,24 +555,50 @@ export async function PUT(req: Request) {
 
     if (error) {
       console.error('Product update error:', error)
-      return NextResponse.json({ error: 'Neizdevās atjaunot produktu' }, { status: 400 })
+      return NextResponse.json({ 
+        error: 'Neizdevās atjaunot produktu',
+        debug: { step: 'database_update_failed', dbError: error }
+      }, { status: 400 })
     }
 
-    return NextResponse.json(data?.[0])
+    console.log('Product updated successfully:', data?.[0]?.id)
+    
+    return NextResponse.json(data?.[0], {
+      headers: {
+        'X-Debug-Info': 'Product updated successfully'
+      }
+    })
 
   } catch (error) {
     console.error('Products PUT error:', error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Servera kļūda' }, 
-      { status: error instanceof Error && error.message.includes('tiesību') ? 403 : 500 }
-    )
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace')
+    
+    const errorMessage = error instanceof Error ? error.message : 'Servera kļūda'
+    const isAuthError = errorMessage.includes('tiesību') || errorMessage.includes('autor')
+    
+    return NextResponse.json({
+      error: errorMessage,
+      debug: {
+        step: 'general_error',
+        errorType: error instanceof Error ? error.constructor.name : typeof error,
+        timestamp: new Date().toISOString()
+      }
+    }, { 
+      status: isAuthError ? 403 : 500,
+      headers: {
+        'X-Debug-Error': 'Check server console for details'
+      }
+    })
   }
 }
 
 export async function DELETE(req: Request) {
-  try {
-    const request = req as NextRequest
+  const request = req as NextRequest
   
+  try {
+    console.log('=== DELETE REQUEST DEBUG INFO ===')
+    console.log('Method:', request.method)
+    
     const rateLimitKey = getRateLimitKey(request)
     if (!checkRateLimit(rateLimitKey, 10, 60000)) {
       return NextResponse.json(
@@ -472,8 +607,19 @@ export async function DELETE(req: Request) {
       )
     }
 
-    if (!validateCSRF(request)) {
-      return NextResponse.json({ error: 'Neatļauts pieprasījums' }, { status: 403 })
+    const csrfValid = validateCSRF(request)
+    console.log('DELETE CSRF validation result:', csrfValid)
+    
+    if (!csrfValid) {
+      console.error('CSRF validation failed for DELETE request')
+      return NextResponse.json({ 
+        error: 'Neatļauts pieprasījums - CSRF validācija neizdevās',
+        debug: {
+          hasXRequestedWith: request.headers.get('x-requested-with') === 'XMLHttpRequest',
+          origin: request.headers.get('origin'),
+          environment: process.env.NODE_ENV
+        }
+      }, { status: 403 })
     }
 
     const supabase = await createClient()

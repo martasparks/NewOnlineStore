@@ -241,15 +241,15 @@ useEffect(() => {
       try {
         const method = isEdit ? 'PUT' : 'POST'
 
-      const cleanProduct = {
-        ...product,
-        group_id: product.group_id && product.group_id.trim() !== '' ? product.group_id.trim() : null,
-        subcategory_id: product.subcategory_id && product.subcategory_id.trim() !== '' ? product.subcategory_id.trim() : null,  // ← PIEVIENOT ŠO!
-        category_id: product.category_id && product.category_id.trim() !== '' ? product.category_id.trim() : null  // ← UN ŠO!
-      }
+        const cleanProduct = {
+          ...product,
+          group_id: product.group_id && product.group_id.trim() !== '' ? product.group_id.trim() : null,
+          subcategory_id: product.subcategory_id && product.subcategory_id.trim() !== '' ? product.subcategory_id.trim() : null,
+          category_id: product.category_id && product.category_id.trim() !== '' ? product.category_id.trim() : null
+        }
 
-      console.log('Original product.group_id:', product.group_id)
-      console.log('Cleaned group_id:', cleanProduct.group_id)
+        console.log('Original product.group_id:', product.group_id)
+        console.log('Cleaned group_id:', cleanProduct.group_id)
 
         const payload = { 
           ...cleanProduct,
@@ -257,22 +257,58 @@ useEffect(() => {
         }
 
         console.log('Final payload:', JSON.stringify(payload, null, 2))
+        console.log('Request method:', method)
+        console.log('Request URL:', '/api/products')
 
         delete (payload as Record<string, unknown>).groupId
 
+        // Pievienojam papildu headers un labāku error handling
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        }
+
+        // Pievienojam origin header development režīmā
+        if (typeof window !== 'undefined') {
+          headers['Origin'] = window.location.origin
+        }
+
+        console.log('Request headers:', headers)
+
         const res = await fetch('/api/products', {
           method,
-          headers: { 
-            'Content-Type': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest'
-          },
+          headers,
           body: JSON.stringify(payload),
+          credentials: 'same-origin' // Nodrošina, ka cookies tiek nosūtīti
         })
 
+        console.log('Response status:', res.status)
+        console.log('Response headers:', Object.fromEntries(res.headers.entries()))
+
         const data = await res.json()
+        console.log('Response data:', data)
 
         if (!res.ok) {
-          throw new Error(data.error || 'Neizdevās saglabāt produktu')
+          // Detalizētāka kļūdas apstrāde
+          const errorMessage = data.error || `HTTP ${res.status}: Neizdevās saglabāt produktu`
+          const validationErrors = data.validationErrors || []
+          
+          if (res.status === 403) {
+            console.error('403 Forbidden error details:', {
+              status: res.status,
+              message: errorMessage,
+              headers: Object.fromEntries(res.headers.entries()),
+              url: '/api/products',
+              method
+            })
+            throw new Error(`Pieejams liegts (403): ${errorMessage}. Pārbaudiet autentifikāciju un admin tiesības.`)
+          }
+          
+          if (validationErrors.length > 0) {
+            throw new Error(`Validācijas kļūdas: ${validationErrors.map((e: any) => e.message).join(', ')}`)
+          }
+          
+          throw new Error(errorMessage)
         }
 
         setAlert(
@@ -283,10 +319,24 @@ useEffect(() => {
         onClose()
       } catch (error) {
         console.error('Product save error:', error)
-        setAlert(
-          error instanceof Error ? error.message : 'Neizdevās saglabāt produktu', 
-          'error'
-        )
+        
+        // Labāka kļūdas ziņojuma parādīšana lietotājam
+        let errorMessage = 'Neizdevās saglabāt produktu'
+        
+        if (error instanceof Error) {
+          errorMessage = error.message
+          
+          // Specifiskas kļūdas ziņojumi
+          if (error.message.includes('403')) {
+            errorMessage = 'Nav tiesību veikt šo darbību. Pārbaudiet, vai esat pieteicies kā administrators.'
+          } else if (error.message.includes('Network')) {
+            errorMessage = 'Tīkla kļūda. Pārbaudiet internetpieslēgumu.'
+          } else if (error.message.includes('fetch')) {
+            errorMessage = 'Neizdevās nosūtīt pieprasījumu uz serveri.'
+          }
+        }
+        
+        setAlert(errorMessage, 'error')
       }
     })
   }, [isFormValid, isEdit, product, setAlert, withLoading, onSave, onClose])
