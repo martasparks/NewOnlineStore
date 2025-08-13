@@ -1,10 +1,10 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React, { useState, useMemo } from "react"
 import { ChevronDown } from "lucide-react"
 import Link from "next/link"
+import useSWR from 'swr'
 import { Loading } from "@/components/ui/Loading"
-import { useLoading } from "@hooks/useLoading"
 
 type Subcategory = {
   id: string
@@ -37,37 +37,72 @@ type Category = {
 type CategoryApiResponse = Omit<Category, 'subitems'>
 type SubcategoryApiResponse = Subcategory
 
+// Fast fetcher function
+const fetcher = (url: string) => fetch(url).then(res => {
+  if (!res.ok) throw new Error('Failed to fetch')
+  return res.json()
+})
+
+// Check if we're in admin context
+const useAdminParam = () => {
+  return useMemo(() => {
+    if (typeof window === 'undefined') return ''
+    return window.location.pathname.includes('/admin') ? '?admin=true' : ''
+  }, [])
+}
+
 export default function MainNavigation() {
-  const [categories, setCategories] = useState<Category[]>([])
   const [hovered, setHovered] = useState<string | null>(null)
-  const { isLoading, withLoading } = useLoading(false)
+  const adminParam = useAdminParam()
 
-  useEffect(() => {
-    const fetchData = async () => {
-      withLoading(async () => {
-        const adminParam = window.location.pathname.includes('/admin') ? '?admin=true' : ''
-        const res = await fetch(`/api/navigation/categories${adminParam}`)
-        const cats: CategoryApiResponse[] = await res.json()
-
-        const subRes = await fetch(`/api/navigation/subcategories${adminParam}`)
-        const subs: SubcategoryApiResponse[] = await subRes.json()
-
-        const combined: Category[] = cats.map((cat: CategoryApiResponse) => ({
-          ...cat,
-          subitems: subs.filter((s: SubcategoryApiResponse) => s.category_id === cat.id)
-        }))
-
-        setCategories(combined)
-      })
+  // Parallel SWR requests - much faster!
+  const { data: cats, error: catsError } = useSWR(
+    `/api/navigation/categories${adminParam}`, 
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      dedupingInterval: 30000, // 30 seconds
     }
+  )
+  
+  const { data: subs, error: subsError } = useSWR(
+    `/api/navigation/subcategories${adminParam}`, 
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      dedupingInterval: 30000, // 30 seconds
+    }
+  )
 
-    fetchData()
-  }, [withLoading])
+  // Memoize combined categories to prevent unnecessary recalculations
+  const categories = useMemo(() => {
+    if (!cats || !subs) return []
+    
+    return cats.map((cat: CategoryApiResponse) => ({
+      ...cat,
+      subitems: subs.filter((s: SubcategoryApiResponse) => s.category_id === cat.id)
+    }))
+  }, [cats, subs])
 
-  if (isLoading) {
+  // Loading state - only show if both are still loading
+  if ((!cats && !catsError) || (!subs && !subsError)) {
     return (
       <nav className="bg-white border-t border-gray-200 text-sm relative h-14">
         <Loading variant="dots" className="h-14" />
+      </nav>
+    )
+  }
+
+  // Error state - show empty nav instead of breaking
+  if (catsError || subsError) {
+    console.error('Navigation fetch error:', catsError || subsError)
+    return (
+      <nav className="bg-white border-t border-gray-200 text-sm relative h-14">
+        <div className="max-w-screen-2xl mx-auto px-4 flex items-center h-14">
+          <span className="text-gray-400 text-xs">Navigācija nav pieejama</span>
+        </div>
       </nav>
     )
   }
@@ -81,7 +116,7 @@ export default function MainNavigation() {
       >
         <div className="max-w-screen-2xl mx-auto px-4">
           <ul className="flex items-center h-14">
-            {categories.map((cat, index) => (
+            {categories.map((cat: Category, index: number) => (
               <React.Fragment key={cat.name}>
                 <li
                   onMouseEnter={() => setHovered(cat.name)}
@@ -111,13 +146,13 @@ export default function MainNavigation() {
           </ul>
         </div>
 
-        {hovered && categories.find(cat => cat.name === hovered)?.subitems && (
+        {hovered && categories.find((cat: Category) => cat.name === hovered)?.subitems && (
           <div 
             className="absolute left-0 right-0 top-full bg-white border-t border-gray-200 shadow-xl z-50 transition-all duration-300 ease-in-out opacity-100 visible translate-y-0"
           >
             <div className="max-w-screen-xl mx-auto px-4 py-8">
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-                {categories.find(cat => cat.name === hovered)?.subitems?.map((item, index) => (
+                {categories.find((cat: Category) => cat.name === hovered)?.subitems?.map((item: Subcategory, index: number) => (
                   <Link
                     key={`${hovered}-${item.name}`}
                     href={item.url || '#'}
