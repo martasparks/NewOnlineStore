@@ -86,14 +86,14 @@ export default function MainNavigation() {
     }))
   }, [cats, subs])
 
-  // Loading state - only show if both are still loading
-  if ((!cats && !catsError) || (!subs && !subsError)) {
-    return (
-      <nav className="bg-white border-t border-gray-200 text-sm relative h-14">
-        <Loading variant="dots" className="h-14" />
-      </nav>
-    )
-  }
+  // Don't show loading for now - will add back when needed
+  // if ((!cats && !catsError) || (!subs && !subsError)) {
+  //   return (
+  //     <nav className="bg-white border-t border-gray-200 text-sm relative h-14">
+  //       <Loading variant="dots" className="h-14" />
+  //     </nav>
+  //   )
+  // }
 
   // Error state - show empty nav instead of breaking
   if (catsError || subsError) {

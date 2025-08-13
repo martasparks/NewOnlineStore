@@ -67,16 +67,16 @@ export default function HomePage() {
     }))
   }, [slidesData])
 
-  // Loading state
-  if (!slidesData && !error) {
-    return (
-      <Loading
-        fullScreen
-        variant="spinner"
-        text="Lūdzu, uzgaidiet. Ielādējam..."
-      />
-    );
-  }
+  // Don't show loading for now - will add back when needed
+  // if (!slidesData && !error) {
+  //   return (
+  //     <Loading
+  //       fullScreen
+  //       variant="spinner"
+  //       text="Lūdzu, uzgaidiet. Ielādējam..."
+  //     />
+  //   );
+  // }
 
   // Error state - show page anyway with empty slides
   if (error) {
