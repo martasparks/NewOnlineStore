@@ -43,7 +43,7 @@ export default function HomePage() {
     try {
       const base =
         process.env.NODE_ENV === 'production'
-          ? 'https://yourdomain.com'
+          ? 'https://martas-parks.vercel.app'
           : 'http://localhost:3000';
 
       const res = await fetch(`${base}/api/slider`, { cache: 'no-store' });

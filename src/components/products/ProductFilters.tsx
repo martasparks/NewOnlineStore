@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useSearchParams, usePathname } from 'next/navigation'
+import { useDebounce } from '@hooks/useDebounce'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -17,7 +18,6 @@ import {
   AlertCircle,
   RefreshCw
 } from 'lucide-react'
-import { useDebounce } from '@hooks/useDebounce'
 
 interface Category {
   id: string
