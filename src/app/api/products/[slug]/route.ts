@@ -72,7 +72,6 @@ export async function GET(
       { ...product, relatedColors }, 
       {
         headers: {
-          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
           'X-Content-Type-Options': 'nosniff'
         }
       }

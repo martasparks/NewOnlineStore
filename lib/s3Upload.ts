@@ -38,7 +38,6 @@ export async function uploadToS3(
   // Optimized file naming - simpler and faster
   const timestamp = new Date().toISOString().split('T')[0];
   const uuid = randomUUID();
-  const extension = fileName.split('.').pop()?.toLowerCase() || 'jpg';
   
   // Simplified sanitization
   const sanitizedName = fileName

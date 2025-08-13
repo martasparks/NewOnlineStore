@@ -28,11 +28,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  const cacheHeaders = admin 
-    ? { 'Cache-Control': 'no-cache, no-store, must-revalidate' }
-    : { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300' }
-
-  return NextResponse.json(data, { headers: cacheHeaders })
+  return NextResponse.json(data)
 }
 
 export async function POST(req: Request) {

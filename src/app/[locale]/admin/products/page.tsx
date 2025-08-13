@@ -22,7 +22,7 @@ import {
 import ProductModal from '@/components/admin/products/ProductModal'
 import { useAlert } from '@lib/store/alert'
 import { useLoading } from '@hooks/useLoading'
-import { forceRefreshAdminData, getCacheBustParam } from '@lib/cache-utils'
+import { forceRefreshAdminData } from '@lib/cache-utils'
 import {
   Popover,
   PopoverContent,
@@ -47,8 +47,8 @@ const fetcher = (url: string) => fetch(url, {
 
 export default function ProductsAdminPage() {
   const { data: productsData, mutate, error } = useSWR<ProductsData>(
-    // Add cache-busting parameter to force fresh data
-    `/api/products?admin=true&${getCacheBustParam()}`, 
+    // Use simple URL without cache busting parameter
+    '/api/products?admin=true', 
     fetcher,
     {
       // Aggressive cache busting for admin
@@ -103,7 +103,7 @@ export default function ProductsAdminPage() {
 
         setAlert(data.message || 'Produkts dzēsts', 'success')
         // Force complete refresh with cache busting
-        await forceRefreshAdminData(mutate, '/api/products')
+        await forceRefreshAdminData(mutate)
       } catch (err) {
         setAlert(
           err instanceof Error ? err.message : 'Kļūda dzēšot produktu', 
@@ -137,7 +137,7 @@ export default function ProductsAdminPage() {
           'success'
         )
         // Force complete refresh with cache busting
-        await forceRefreshAdminData(mutate, '/api/products')
+        await forceRefreshAdminData(mutate)
       } catch (err) {
         setAlert(
           err instanceof Error ? err.message : 'Neizdevās mainīt statusu', 
@@ -542,7 +542,7 @@ if (error) {
         initialData={selected}
         onSave={async () => {
           // Force complete refresh with cache busting
-          await forceRefreshAdminData(mutate, '/api/products')
+          await forceRefreshAdminData(mutate)
           setSelected(null)
         }}
       />

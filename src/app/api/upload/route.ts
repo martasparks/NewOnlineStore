@@ -208,7 +208,6 @@ export async function POST(req: NextRequest) {
      ...(isDevelopment && { processingTime: `${processingTime}ms` })
    }, {
      headers: {
-       'Cache-Control': 'no-cache',
        'X-Content-Type-Options': 'nosniff',
      }
    });

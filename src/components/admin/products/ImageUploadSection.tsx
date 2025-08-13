@@ -49,7 +49,7 @@ export default function ImageUploadSection({
       }
 
       // 🚀 PARALLEL UPLOAD - Upload all files simultaneously
-      const uploadPromises = validFiles.map(async (file, index) => {
+      const uploadPromises = validFiles.map(async (file) => {
         const formData = new FormData()
         formData.append('file', file)
         formData.append('folder', 'products')
@@ -74,7 +74,7 @@ export default function ImageUploadSection({
               fileName: file.name 
             }
           }
-        } catch (uploadError) {
+        } catch {
           return { 
             success: false, 
             error: `${file.name}: Tīkla kļūda vai timeout`,

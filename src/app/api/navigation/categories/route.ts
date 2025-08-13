@@ -24,11 +24,7 @@ export async function GET(request: NextRequest) {
     productCount: cat.products?.[0]?.count || 0
   }))
 
-  const cacheHeaders = admin 
-    ? { 'Cache-Control': 'no-cache, no-store, must-revalidate' }
-    : { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300' }
-
-  return NextResponse.json(enrichedCategories, { headers: cacheHeaders })
+  return NextResponse.json(enrichedCategories)
 }
 
 export async function POST(req: Request) {

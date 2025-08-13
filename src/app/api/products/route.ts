@@ -235,15 +235,9 @@ export async function GET(request: NextRequest) {
     }
 
     const headers: Record<string, string> = {
-      'Cache-Control': admin ? 'no-cache, no-store, must-revalidate, max-age=0' : 'public, s-maxage=300, stale-while-revalidate=600',
-      'Pragma': admin ? 'no-cache' : 'public',
       'X-Content-Type-Options': 'nosniff',
       'X-Frame-Options': 'DENY',
       'X-Generated-At': new Date().toISOString()
-    }
-
-    if (admin) {
-      headers['Expires'] = '0'
     }
 
     return NextResponse.json({
