@@ -126,24 +126,8 @@ export default function ProductFilters({ onFilterChange, isLoading = false }: Pr
     setTimeout(() => setIsUpdating(false), 200)
   }, [selectedCategories, inStock, featured, updateURLWithoutRefresh])
 
-  // Effects
-  useEffect(() => {
-    fetchCategories()
-  }, [])
-
-  useEffect(() => {
-    loadFiltersFromURL()
-  }, [searchParams, loadFiltersFromURL])
-
-  // Debounced price update
-  useEffect(() => {
-    if (debouncedPriceRange[0] !== 0 || debouncedPriceRange[1] !== 1000) {
-      commitPriceToURL(debouncedPriceRange)
-    }
-  }, [debouncedPriceRange, commitPriceToURL])
-
   // Category fetching with error handling
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     setCategoriesLoading(true)
     setCategoriesError(null)
     
@@ -162,7 +146,7 @@ export default function ProductFilters({ onFilterChange, isLoading = false }: Pr
     } finally {
       setCategoriesLoading(false)
     }
-  }
+  }, [])
 
   // Load filters from URL
   const loadFiltersFromURL = useCallback(() => {
@@ -177,6 +161,22 @@ export default function ProductFilters({ onFilterChange, isLoading = false }: Pr
     setInStock(stockFilter)
     setFeatured(featuredFilter)
   }, [searchParams])
+
+  // Effects
+  useEffect(() => {
+    fetchCategories()
+  }, [fetchCategories])
+
+  useEffect(() => {
+    loadFiltersFromURL()
+  }, [loadFiltersFromURL])
+
+  // Debounced price update
+  useEffect(() => {
+    if (debouncedPriceRange[0] !== 0 || debouncedPriceRange[1] !== 1000) {
+      commitPriceToURL(debouncedPriceRange)
+    }
+  }, [debouncedPriceRange, commitPriceToURL])
 
   // Category change handler
   const handleCategoryChange = (categorySlug: string, checked: boolean) => {
