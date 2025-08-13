@@ -30,7 +30,7 @@ export async function POST(req: Request) {
   let supabase
   try {
     supabase = await createClient()
-  } catch (_e) {
+  } catch {
     return NextResponse.json({ error: 'Servera konfigurācijas kļūda' }, { status: 500 })
   }
 

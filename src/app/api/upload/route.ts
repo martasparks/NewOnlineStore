@@ -145,7 +145,7 @@ try {
       setTimeout(() => reject(new Error('Timeout')), 30000)
     )
   ]);
-} catch (_error) {
+} catch {
   return NextResponse.json(
     { error: "Neizdevās nolasīt datus" }, 
     { status: 400 }
@@ -194,7 +194,7 @@ try {
 try {
   const arrayBuffer = await file.arrayBuffer();
   buffer = Buffer.from(arrayBuffer);
-} catch (_error) {
+} catch {
   return NextResponse.json(
     { error: "Neizdevās nolasīt failu" }, 
     { status: 400 }
@@ -236,7 +236,7 @@ try {
 if (!isDevelopment) {
   try {
     const supabase = await createClient();
-    const { data: { user: _user } } = await supabase.auth.getUser();
+    await supabase.auth.getUser();
   } catch (logError) {
     console.error('Logging failed:', logError);
   }

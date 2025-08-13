@@ -8,9 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { 
   Heart, 
   ShoppingCart, 
-  Star,
   Eye,
-  Tag,
   TrendingUp
 } from 'lucide-react'
 import { ProductPlaceholder } from '../ui/ProductPlaceholder'
@@ -54,7 +52,6 @@ const ProductCard = memo(function ProductCard({
   const [isLoading, setIsLoading] = useState(false)
   const [isVisible, setIsVisible] = useState(false)
   const cardRef = useRef<HTMLDivElement>(null)
-  const effectivePrice = product.sale_price || product.price
   const hasDiscount = product.sale_price && product.sale_price < product.price
   const discountPercent = hasDiscount ? Math.round(((product.price - product.sale_price!) / product.price) * 100) : 0
   const isOutOfStock = product.stock_quantity !== undefined && product.stock_quantity === 0
@@ -113,7 +110,7 @@ const ProductCard = memo(function ProductCard({
     
     try {
       await onWishlistToggle?.(product.id, newWishlistState)
-    } catch (error) {
+    } catch {
       setIsWishlisted(!newWishlistState)
     }
   }

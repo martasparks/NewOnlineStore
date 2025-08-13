@@ -1,21 +1,20 @@
 'use client'
 
+import Image from 'next/image'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
-import { X, Upload, Image as ImageIcon } from 'lucide-react'
+import { X, Upload } from 'lucide-react'
 import { useAlert } from '@lib/store/alert'
 
 interface ImageUploadSectionProps {
   images: string[]
-  type: 'images' | 'gallery'
   title: string
   onImagesChange: (images: string[]) => void
 }
 
 export default function ImageUploadSection({
   images,
-  type,
   title,
   onImagesChange
 }: ImageUploadSectionProps) {
@@ -57,7 +56,7 @@ export default function ImageUploadSection({
             const error = await response.json()
             errors.push(`${file.name}: ${error.error || 'Augšupielādes kļūda'}`)
           }
-        } catch (fileError) {
+        } catch {
           errors.push(`${file.name}: Tīkla kļūda`)
         }
       }
@@ -79,7 +78,7 @@ export default function ImageUploadSection({
         setAlert(errorMessage, 'error')
       }
 
-    } catch (error) {
+    } catch {
       setAlert('Neizdevās augšupielādēt attēlus', 'error')
     } finally {
       setUploading(false)
@@ -162,10 +161,12 @@ export default function ImageUploadSection({
               key={index}
               className="relative group bg-gray-50 rounded-lg overflow-hidden aspect-square"
             >
-              <img
+              <Image
                 src={url}
                 alt={`Attēls ${index + 1}`}
-                className="w-full h-full object-cover"
+                fill
+                className="object-cover"
+                sizes="(max-width: 768px) 50vw, 25vw"
               />
               <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-opacity flex items-center justify-center">
                 <Button

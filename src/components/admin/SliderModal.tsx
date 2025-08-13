@@ -143,7 +143,7 @@ useEffect(() => {
         setAlert('Slaids saglabāts veiksmīgi!', 'success')
         onSave()
         onClose()
-      } catch (error) {
+      } catch {
         setAlert('Neizdevās saglabāt slaidu', 'error')
       }
     })

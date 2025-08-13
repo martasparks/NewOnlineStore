@@ -133,7 +133,7 @@ export default function ProductFilters({ onFilterChange, isLoading = false }: Pr
 
   useEffect(() => {
     loadFiltersFromURL()
-  }, [searchParams])
+  }, [searchParams, loadFiltersFromURL])
 
   // Debounced price update
   useEffect(() => {
@@ -165,7 +165,7 @@ export default function ProductFilters({ onFilterChange, isLoading = false }: Pr
   }
 
   // Load filters from URL
-  const loadFiltersFromURL = () => {
+  const loadFiltersFromURL = useCallback(() => {
     const categories = searchParams.get('categories')?.split(',').filter(Boolean) || []
     const minPrice = Math.max(0, parseInt(searchParams.get('minPrice') || '0'))
     const maxPrice = Math.min(10000, parseInt(searchParams.get('maxPrice') || '1000'))
@@ -176,7 +176,7 @@ export default function ProductFilters({ onFilterChange, isLoading = false }: Pr
     setPriceRange([minPrice, maxPrice])
     setInStock(stockFilter)
     setFeatured(featuredFilter)
-  }
+  }, [searchParams])
 
   // Category change handler
   const handleCategoryChange = (categorySlug: string, checked: boolean) => {

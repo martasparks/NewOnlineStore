@@ -170,7 +170,7 @@ export default function TranslationModal({
 
         onSave()
         onClose()
-      } catch (error) {
+      } catch {
         setAlert('Neizdevās saglabāt tulkojumu', 'error')
       }
     })

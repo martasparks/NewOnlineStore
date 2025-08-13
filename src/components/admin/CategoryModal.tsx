@@ -117,8 +117,8 @@ export default function CategoryModal({
           }
           console.log('Updated subcategory:', data)
         })
-        .catch((error) => {
-          console.error('Error updating subcategory:', error)
+        .catch(() => {
+          console.error('Error updating subcategory')
           setAlert('Neizdevās atjaunināt apakškategoriju', 'error')
         })
       setSubcategories((subs) =>
@@ -191,7 +191,7 @@ export default function CategoryModal({
         setAlert('Saglabāts veiksmīgi', 'success')
         onSave()
         onClose()
-      } catch (error) {
+      } catch {
         setAlert('Neizdevās saglabāt', 'error')
       }
     })
