@@ -138,7 +138,7 @@ export default function ProductsAdminPage() {
         a.click()
         window.URL.revokeObjectURL(url)
       }
-    } catch (err) {
+    } catch {
       setAlert('Neizdevās eksportēt produktus', 'error')
     }
   }

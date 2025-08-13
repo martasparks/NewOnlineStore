@@ -399,14 +399,12 @@ useEffect(() => {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <ImageUploadSection
                   images={product.images}
-                  type="images"
                   title="Galvenie attēli"
                   onImagesChange={handleImagesChange}
                 />
                 
                 <ImageUploadSection
                   images={product.gallery}
-                  type="gallery"
                   title="Galerija"
                   onImagesChange={handleGalleryChange}
                 />
