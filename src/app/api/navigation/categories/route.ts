@@ -3,8 +3,7 @@ import { createClient } from '@lib/supabase/server'
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient()
-  const { searchParams } = new URL(request.url)
-  const admin = searchParams.get('admin') === 'true'
+  new URL(request.url)
   
   const { data: categories, error } = await supabase
     .from('navigation_categories')

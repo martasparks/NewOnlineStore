@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '../../../../../lib/supabase/server'
+import { createClient } from '@lib/supabase/server'
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient()
-  const { searchParams } = new URL(request.url)
-  const admin = searchParams.get('admin') === 'true'
+  new URL(request.url)
   
   const { data, error } = await supabase
     .from('navigation_subcategories')

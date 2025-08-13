@@ -22,7 +22,6 @@ import {
 import ProductModal from '@/components/admin/products/ProductModal'
 import { useAlert } from '@lib/store/alert'
 import { useLoading } from '@hooks/useLoading'
-import { forceRefreshAdminData } from '@lib/cache-utils'
 import {
   Popover,
   PopoverContent,
@@ -33,35 +32,15 @@ interface ProductsData {
   products: Product[]
 }
 
-const fetcher = (url: string) => fetch(url, {
-  // Force fresh data, prevent browser cache
-  cache: 'no-cache',
-  headers: {
-    'Cache-Control': 'no-cache',
-    'Pragma': 'no-cache'
-  }
-}).then(res => {
+const fetcher = (url: string) => fetch(url).then(res => {
   if (!res.ok) throw new Error('Network response was not ok')
   return res.json()
 })
 
 export default function ProductsAdminPage() {
   const { data: productsData, mutate, error } = useSWR<ProductsData>(
-    // Use simple URL without cache busting parameter
     '/api/products?admin=true', 
-    fetcher,
-    {
-      // Aggressive cache busting for admin
-      revalidateOnFocus: true,
-      revalidateOnReconnect: true,
-      refreshInterval: 0, // Don't auto-refresh, only manual
-      dedupingInterval: 0, // No deduping, always fresh
-      errorRetryCount: 3,
-      errorRetryInterval: 1000,
-      // Add timestamp to force cache bust
-      refreshWhenHidden: false,
-      refreshWhenOffline: false
-    }
+    fetcher
   )
   const [selected, setSelected] = useState<Product | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
@@ -102,8 +81,8 @@ export default function ProductsAdminPage() {
         }
 
         setAlert(data.message || 'Produkts dzēsts', 'success')
-        // Force complete refresh with cache busting
-        await forceRefreshAdminData(mutate)
+        // Refresh data
+        await mutate()
       } catch (err) {
         setAlert(
           err instanceof Error ? err.message : 'Kļūda dzēšot produktu', 
@@ -136,8 +115,8 @@ export default function ProductsAdminPage() {
           `Produkts "${name}" ${newStatus === 'active' ? 'aktivizēts' : 'deaktivizēts'}`, 
           'success'
         )
-        // Force complete refresh with cache busting
-        await forceRefreshAdminData(mutate)
+        // Refresh data
+        await mutate()
       } catch (err) {
         setAlert(
           err instanceof Error ? err.message : 'Neizdevās mainīt statusu', 
@@ -541,8 +520,8 @@ if (error) {
         onClose={() => setModalOpen(false)}
         initialData={selected}
         onSave={async () => {
-          // Force complete refresh with cache busting
-          await forceRefreshAdminData(mutate)
+          // Refresh data
+          await mutate()
           setSelected(null)
         }}
       />

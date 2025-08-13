@@ -6,7 +6,6 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const locale = searchParams.get('locale')
   const namespace = searchParams.get('namespace')
-  const admin = searchParams.get('admin') === 'true'
 
   let query = supabase
     .from('translations')
