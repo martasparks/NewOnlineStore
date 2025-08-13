@@ -46,7 +46,12 @@ export default function HomePage() {
           ? 'https://martas-parks.vercel.app'
           : 'http://localhost:3000';
 
-      const res = await fetch(`${base}/api/slider`, { cache: 'no-store' });
+      const res = await fetch(`${base}/api/slider?t=${Date.now()}`, { 
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache'
+        }
+      });
       if (!res.ok) throw new Error('Failed to fetch slides');
       const slidesData: SlideApiResponse[] = await res.json();
 

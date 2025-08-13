@@ -136,11 +136,11 @@ useEffect(() => {
         const data = await res.json()
 
         if (!res.ok) {
-          setAlert(data.error || 'Neizdevās saglabāt slaidu', 'error')
+          setAlert(data.error || 'Neizdevās saglabāt slaideri!', 'error')
           return
         }
 
-        setAlert('Slaids saglabāts veiksmīgi', 'success')
+        setAlert('Slaids saglabāts veiksmīgi!', 'success')
         onSave()
         onClose()
       } catch (error) {
