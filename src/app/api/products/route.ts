@@ -153,6 +153,25 @@ export async function GET(request: NextRequest) {
       query = query.eq('category_id', category)
     }
 
+    const categoriesParam = searchParams.get('categories')
+    if (categoriesParam) {
+      const categorySlugs = categoriesParam.split(',').filter(slug => 
+        slug.trim() && /^[a-zA-Z0-9-]+$/.test(slug.trim())
+      )
+      
+      if (categorySlugs.length > 0) {
+        const { data: categoryData, error: categoryError } = await supabase
+          .from('navigation_categories')
+          .select('id')
+          .in('slug', categorySlugs)
+        
+        if (!categoryError && categoryData && categoryData.length > 0) {
+          const categoryIds = categoryData.map(cat => cat.id)
+          query = query.in('category_id', categoryIds)
+        }
+      }
+    }
+
     const groupIdParam = searchParams.get('groupId')
     if (groupIdParam) query = query.eq('group_id', groupIdParam)
 
