@@ -310,7 +310,7 @@ export default function ProductPage() {
          </nav>
 
          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
-           {/* Product Gallery */}
+
            <div className="lg:sticky lg:top-8 lg:h-fit">
              <ProductGallery 
                images={[...product.images, ...product.gallery]}
@@ -319,9 +319,8 @@ export default function ProductPage() {
              />
            </div>
 
-           {/* Product Information */}
            <div className="space-y-8">
-             {/* Product Header */}
+
              <div className="space-y-4">
                <div className="flex items-start justify-between">
                  <div className="flex-1">
@@ -339,7 +338,6 @@ export default function ProductPage() {
                      </div>
                    </div>
 
-                   {/* Status Badges */}
                    <div className="flex items-center space-x-3 mt-4">
                      {product.featured && (
                        <Badge className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white">
@@ -391,11 +389,11 @@ export default function ProductPage() {
                )}
 
               {product.relatedColors && (
-                <div className="mt-4">
+                <div className="mt-6">
                   {product.relatedColors.length > 0 ? (
                     <>
-                      <h4 className="text-sm font-semibold text-gray-700 mb-2">
-                        <Palette className="w-4 h-4 mr-1 inline text-gray-500" />
+                      <h4 className="flex items-center gap-1.5 text-sm font-semibold text-gray-700 mb-2">
+                        <Palette className="w-4 h-4 mr-1 text-red-500" />
                         Pieejamās krāsas:
                       </h4>
                       <div className="flex space-x-2">
@@ -404,17 +402,22 @@ export default function ProductPage() {
                             key={color.id}
                             href={`/produkti/${color.slug}`}
                             aria-current={color.slug === product.slug ? 'true' : undefined}
-                            className={`border rounded-lg overflow-hidden w-16 h-16 flex items-center justify-center 
+                            className={`border rounded-lg overflow-hidden relative w-28 aspect-[4/3] group
                               ${color.slug === product.slug ? 'ring-2 ring-blue-500' : 'hover:ring-2 hover:ring-gray-400'}`}
-                            title={`${color.name}${color.sku ? ` (SKU: ${color.sku})` : ''}`}
                           >
                             <Image
                               src={color.images[0] || '/no-image.png'}
                               alt={`${color.name}${color.sku ? ` (SKU: ${color.sku})` : ''}`}
-                              width={64}
-                              height={64}
-                              className="object-cover w-full h-full"
+                              fill
+                              className="object-cover group-hover:brightness-75 transition-all duration-200"
+                              sizes="96px"
+                              quality={90}
                             />
+                              <div className="absolute inset-0 flex items-end justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                <span className="bg-black text-white text-xs px-1 py-1 rounded-t text-center leading-tight max-w-full">
+                                  {color.name}
+                                </span>
+                              </div>
                           </Link>
                         ))}
                       </div>

@@ -17,7 +17,6 @@ export async function GET() {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  // Pievienojam produktu skaitu
   const enrichedCategories = categories?.map(cat => ({
     ...cat,
     productCount: cat.products?.[0]?.count || 0

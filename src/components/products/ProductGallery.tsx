@@ -34,18 +34,15 @@ export default function ProductGallery({ images, alt, priority = false }: Produc
   const [zoomLevel, setZoomLevel] = useState(1)
   const [rotation, setRotation] = useState(0)
   
-  // Touch handling
   const [touchStart, setTouchStart] = useState<TouchPosition | null>(null)
   const [touchEnd, setTouchEnd] = useState<TouchPosition | null>(null)
   
-  // Refs
   const galleryRef = useRef<HTMLDivElement>(null)
   const thumbnailRefs = useRef<(HTMLButtonElement | null)[]>([])
 
   const hasImages = images && images.length > 0
   const minSwipeDistance = 50
 
-  // Navigation functions
   const nextImage = useCallback(() => {
     if (!hasImages) return
     setCurrentImage((prev) => (prev + 1) % images.length)
@@ -73,15 +70,12 @@ export default function ProductGallery({ images, alt, priority = false }: Produc
     }
   }, [images.length])
 
-  // Zoom functions
   const zoomIn = () => setZoomLevel(prev => Math.min(prev + 0.5, 3))
   const zoomOut = () => setZoomLevel(prev => Math.max(prev - 0.5, 1))
   const resetZoom = () => setZoomLevel(1)
 
-  // Rotation
   const rotateImage = () => setRotation(prev => (prev + 90) % 360)
 
-  // Touch handlers
   const onTouchStart = (e: React.TouchEvent) => {
     setTouchEnd(null)
     setTouchStart({
@@ -116,7 +110,6 @@ export default function ProductGallery({ images, alt, priority = false }: Produc
     }
   }
 
-  // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!hasImages) return
@@ -184,7 +177,6 @@ export default function ProductGallery({ images, alt, priority = false }: Produc
     }
   }, [isZoomed, isFullscreen, hasImages, images.length, nextImage, prevImage])
 
-  // Scroll thumbnail into view
   useEffect(() => {
     if (thumbnailRefs.current[currentImage]) {
       thumbnailRefs.current[currentImage]?.scrollIntoView({
@@ -195,12 +187,10 @@ export default function ProductGallery({ images, alt, priority = false }: Produc
     }
   }, [currentImage])
 
-  // Handle image error
   const handleImageError = (index: number) => {
     setImageError(prev => new Set([...prev, index]))
   }
 
-  // Auto-advance for single image loading
   useEffect(() => {
     if (hasImages) {
       const timer = setTimeout(() => setIsLoading(false), 500)
@@ -310,81 +300,65 @@ export default function ProductGallery({ images, alt, priority = false }: Produc
         )}
       </div>
 
-{images.length > 1 && (
-  <div className="space-y-3">
-    {/* Thumbnail Grid */}
-    <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-3">
-      {images.map((image, index) => (
-        <button
-          key={`thumb-${index}`}
-          ref={(el) => {
-            thumbnailRefs.current[index] = el
-          }}
-          onClick={() => goToImage(index)}
-          className={`group relative aspect-square rounded-2xl overflow-hidden transition-all duration-300 ease-out ${
-            index === currentImage
-              ? 'ring-3 ring-blue-500 ring-offset-2 ring-offset-white shadow-lg scale-105' 
-              : 'ring-2 ring-gray-200 hover:ring-gray-300 hover:scale-102 hover:shadow-md'
-          }`}
-          aria-label={`Apskatīt attēlu ${index + 1}`}
-        >
-          
-          <div className="absolute inset-0 bg-gradient-to-br from-gray-100 to-gray-50" />
-          
-          {!imageError.has(index) ? (
-            <Image
-              src={image}
-              alt={`${alt} - sīkattēls ${index + 1}`}
-              fill
-              sizes="(max-width: 640px) 25vw, (max-width: 768px) 20vw, 16vw"
-              className="object-cover transition-transform duration-300 group-hover:scale-110"
-              quality={85}
-              priority={index < 6}
-              onError={() => handleImageError(index)}
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
-              <ProductPlaceholder className="w-8 h-8 text-gray-400" />
+        {images.length > 1 && (
+          <div className="space-y-3">
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4">
+              {images.map((image, index) => (
+                <button
+                  key={`thumb-${index}`}
+                  ref={(el) => {
+                    thumbnailRefs.current[index] = el
+                  }}
+                  onClick={() => goToImage(index)}
+                  className={`group relative aspect-[4/3] rounded-2xl overflow-hidden transition-all duration-300 ease-out ${
+                    index === currentImage
+                      ? 'ring-3 ring-blue-500 ring-offset-2 ring-offset-white shadow-lg scale-105'
+                      : 'ring-2 ring-gray-200 hover:ring-gray-300 hover:scale-102 hover:shadow-md'
+                  }`}
+                  aria-label={`Apskatīt attēlu ${index + 1}`}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-br from-gray-100 to-gray-50" />
+                  
+                  {!imageError.has(index) ? (
+                    <Image
+                      src={image}
+                      alt={`${alt} - sīkattēls ${index + 1}`}
+                      fill
+                      sizes="(max-width: 640px) 33vw, (max-width: 768px) 25vw, 20vw"
+                      className="object-contain p-1 transition-transform duration-300 group-hover:scale-105"
+                      quality={90}
+                      priority={index < 6}
+                      onError={() => handleImageError(index)}
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
+                      <ProductPlaceholder className="w-8 h-8 text-gray-400" />
+                    </div>
+                  )}
+                  
+                  {index === currentImage && (
+                    <div className="absolute inset-0 bg-gradient-to-t from-blue-600/20 via-transparent to-transparent" />
+                  )}
+                  
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-200" />
+                  
+                  {index === currentImage && (
+                    <div className="absolute bottom-2 right-2">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full shadow-sm" />
+                    </div>
+                  )}
+                  
+                  <div className="absolute top-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    <span className="bg-black/50 text-white text-xs px-2 py-1 rounded-md font-medium">
+                      {index + 1}
+                    </span>
+                  </div>
+                </button>
+              ))}
             </div>
-          )}
-          
-          {index === currentImage && (
-            <div className="absolute inset-0 bg-gradient-to-t from-blue-600/20 via-transparent to-transparent" />
-          )}
-          
-          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-200" />
-          
-          {index === currentImage && (
-            <div className="absolute bottom-2 right-2">
-              <div className="w-2 h-2 bg-blue-500 rounded-full shadow-sm" />
-            </div>
-          )}
-          
-          {/* Image number badge for better UX */}
-          <div className="absolute top-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-            <span className="bg-black/50 text-white text-xs px-2 py-1 rounded-md font-medium">
-              {index + 1}
-            </span>
+            
           </div>
-        </button>
-      ))}
-    </div>
-    
-    {/* Progress indicator */}
-    <div className="flex justify-center space-x-1">
-      {images.map((_, index) => (
-        <div
-          key={`indicator-${index}`}
-          className={`h-1 rounded-full transition-all duration-300 ${
-            index === currentImage 
-              ? 'w-8 bg-blue-500' 
-              : 'w-1 bg-gray-300 hover:bg-gray-400'
-          }`}
-        />
-      ))}
-    </div>
-  </div>
-)}
+        )}
 
       {isZoomed && (
         <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4">
@@ -410,7 +384,6 @@ export default function ProductGallery({ images, alt, priority = false }: Produc
               <ProductPlaceholder className="w-[600px] h-[600px]" />
             )}
             
-            {/* Zoom Controls */}
             <div className="absolute top-4 left-4 flex space-x-2">
               <Button
                 variant="secondary"
@@ -455,7 +428,6 @@ export default function ProductGallery({ images, alt, priority = false }: Produc
               </Button>
             </div>
 
-            {/* Navigation in Zoom */}
             {images.length > 1 && (
               <>
                 <Button
@@ -480,14 +452,12 @@ export default function ProductGallery({ images, alt, priority = false }: Produc
               </>
             )}
 
-            {/* Image Counter */}
             {images.length > 1 && (
               <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/70 text-white text-sm px-4 py-2 rounded-full">
                 {currentImage + 1} / {images.length}
               </div>
             )}
 
-            {/* Close Button */}
             <Button
               variant="secondary"
               className="absolute top-4 right-4 bg-white/90 hover:bg-white"
@@ -503,7 +473,6 @@ export default function ProductGallery({ images, alt, priority = false }: Produc
             </Button>
           </div>
 
-          {/* Click outside to close */}
           <div 
             className="absolute inset-0 -z-10" 
             onClick={() => {
@@ -515,7 +484,6 @@ export default function ProductGallery({ images, alt, priority = false }: Produc
         </div>
       )}
 
-      {/* Fullscreen Mode */}
       {isFullscreen && (
         <div className="fixed inset-0 z-50 bg-black flex items-center justify-center">
           <div className="relative w-full h-full flex items-center justify-center p-4">
@@ -540,7 +508,6 @@ export default function ProductGallery({ images, alt, priority = false }: Produc
               <ProductPlaceholder className="w-[800px] h-[800px]" />
             )}
 
-            {/* Fullscreen Controls */}
             <div className="absolute top-4 left-4 flex space-x-2">
               <Button
                 variant="secondary"
@@ -572,7 +539,6 @@ export default function ProductGallery({ images, alt, priority = false }: Produc
               </Button>
             </div>
 
-            {/* Navigation */}
             {images.length > 1 && (
               <>
                 <Button
@@ -595,7 +561,6 @@ export default function ProductGallery({ images, alt, priority = false }: Produc
               </>
             )}
 
-            {/* Counter and Close */}
             <div className="absolute top-4 right-4 flex items-center space-x-4">
               {images.length > 1 && (
                 <div className="bg-black/70 text-white text-sm px-3 py-1 rounded-full">
@@ -617,7 +582,6 @@ export default function ProductGallery({ images, alt, priority = false }: Produc
               </Button>
             </div>
 
-            {/* Instructions */}
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/70 text-white text-xs px-4 py-2 rounded-full">
               <span className="hidden md:inline">
                 Tastatūra: ← → (navigācija), +/- (tālummaiņa), R (griešana), F (pilnekrāns), ESC (aizvērt)

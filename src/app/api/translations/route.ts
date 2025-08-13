@@ -43,18 +43,26 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { data: profile } = await supabase
+  const body = await req.json()
+  const { key, locale, value, namespace = 'default' } = body
+
+  if (!key || !locale || typeof value === 'undefined') {
+    return NextResponse.json({ error: 'Missing required fields: key, locale, value' }, { status: 400 })
+  }
+
+  const { data: profile, error: profileError } = await supabase
     .from('profiles')
     .select('role')
     .eq('id', user.id)
     .single()
 
+  if (profileError) {
+    return NextResponse.json({ error: `Failed to load profile: ${profileError.message}` }, { status: 500 })
+  }
+
   if (profile?.role !== 'admin') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
-
-  const body = await req.json()
-  const { key, locale, value, namespace = 'default' } = body
 
   const { data, error } = await supabase
     .from('translations')
@@ -65,7 +73,7 @@ export async function POST(req: Request) {
       namespace,
       created_by: user.id,
       updated_at: new Date().toISOString()
-    })
+    }, { onConflict: 'key,locale,namespace' })
     .select()
 
   if (error) {

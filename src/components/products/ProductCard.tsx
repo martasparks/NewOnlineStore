@@ -62,6 +62,16 @@ const ProductCard = memo(function ProductCard({
   
   const mainImage: string | undefined = product.images?.[0]
 
+  const isSingular = (qty?: number) => {
+    if (qty == null) return false
+    const mod10 = qty % 10
+    const mod100 = qty % 100
+    return mod10 === 1 && mod100 !== 11
+  }
+
+  const stockNoun = isSingular(product.stock_quantity) ? 'prece' : 'preces'
+  const stockVerb = isSingular(product.stock_quantity) ? 'Atlikusi' : 'Atlikušas'
+
   useEffect(() => {
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -104,7 +114,6 @@ const ProductCard = memo(function ProductCard({
     try {
       await onWishlistToggle?.(product.id, newWishlistState)
     } catch (error) {
-      // Revert on error
       setIsWishlisted(!newWishlistState)
     }
   }
@@ -115,7 +124,6 @@ const ProductCard = memo(function ProductCard({
     return (
       <article ref={cardRef} className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group">
         <div className="flex">
-          {/* Product Image */}
           <div className="aspect-[4/3] w-48 h-48 flex-shrink-0 relative overflow-hidden">
             <Link href={productUrl} className="block w-full h-full">
               {isVisible && !imageError && mainImage ? (
@@ -132,7 +140,6 @@ const ProductCard = memo(function ProductCard({
                 <ProductPlaceholder className="w-full h-full" />
               )}
               
-              {/* Badges */}
               <div className="absolute top-3 left-3 space-y-2">
                 {product.featured && (
                   <Badge className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white border-0">
@@ -157,7 +164,6 @@ const ProductCard = memo(function ProductCard({
                 )}
               </div>
 
-              {/* Wishlist Button */}
               <Button
                 variant="ghost"
                 size="icon"
@@ -170,7 +176,6 @@ const ProductCard = memo(function ProductCard({
             </Link>
           </div>
 
-          {/* Product Details */}
           <div className="flex-1 p-6 flex flex-col justify-between">
             <div>
               <Link href={productUrl} className="block group">
@@ -194,7 +199,6 @@ const ProductCard = memo(function ProductCard({
                 )}
               </Link>
 
-              {/* Price and Stock Info */}
               <div className="space-y-2 mb-4">
                 <div className="flex items-baseline space-x-3">
                   {hasDiscount ? (
@@ -219,7 +223,6 @@ const ProductCard = memo(function ProductCard({
               </div>
             </div>
 
-            {/* Action Buttons */}
             <div className="flex space-x-3">
               <Button
                 onClick={handleAddToCart}
@@ -252,10 +255,8 @@ const ProductCard = memo(function ProductCard({
     )
   }
 
-  // Grid mode (default)
   return (
     <article ref={cardRef} className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group">
-      {/* Product Image */}
       <div className="relative aspect-[4/3] overflow-hidden">
         <Link href={productUrl} className="block w-full h-full">
           {isVisible && !imageError && mainImage ? (
@@ -273,7 +274,6 @@ const ProductCard = memo(function ProductCard({
           )}
         </Link>
 
-        {/* Badges pa kreisi */}
         <div className="absolute top-3 left-3 space-y-2 flex flex-col items-start">
           {product.featured && (
             <Badge className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white border-0">
@@ -296,12 +296,11 @@ const ProductCard = memo(function ProductCard({
         <div className="absolute top-3 right-3 space-y-2 flex flex-col items-end">
           {isLowStock && !isOutOfStock && (
             <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
-              Atlikusi tikai <strong>{product.stock_quantity}</strong> prece
+              {stockVerb} tikai <strong>{product.stock_quantity}</strong> {stockNoun}
             </Badge>
           )}
         </div>
 
-        {/* Wishlist Button */}
         <Button
           variant="ghost"
           size="icon"
@@ -312,7 +311,6 @@ const ProductCard = memo(function ProductCard({
           <Heart className={`w-4 h-4 ${isWishlisted ? 'fill-red-500 text-red-500' : 'text-gray-600'}`} />
         </Button>
 
-        {/* Quick Actions Overlay */}
         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
           <Button
             onClick={handleAddToCart}
@@ -331,7 +329,6 @@ const ProductCard = memo(function ProductCard({
         </div>
       </div>
 
-      {/* Product Details */}
       <div className="p-4">
         <Link href={productUrl} className="block group">
           <h3 className="text-lg font-bold text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-2 leading-tight mb-2">
@@ -351,7 +348,6 @@ const ProductCard = memo(function ProductCard({
           )}
         </Link>
 
-        {/* Price */}
         <div className="flex items-baseline justify-between">
           <div className="flex items-baseline space-x-2">
             {hasDiscount ? (

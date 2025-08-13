@@ -251,16 +251,13 @@ export async function POST(req: Request) {
     const { user } = await checkAdminPermissions(supabase)
 
     const body = await req.json()
-    console.log('Received body:', JSON.stringify(body, null, 2))
 
     const { group_id, parentSlug, ...rest } = body || {}
-    console.log('Extracted group_id:', group_id)
     const resolvedGroupId = await resolveGroupId(supabase, { 
       groupId: group_id,
       parentSlug, 
       parentSku: null 
     })
-    console.log('Resolved group_id:', resolvedGroupId)
 
     const validationErrors = ProductValidation.validateProduct(rest)
     if (validationErrors.length > 0) {
@@ -302,9 +299,6 @@ export async function POST(req: Request) {
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     }
-
-    console.log('Insert payload group_id:', insertPayload.group_id)
-    console.log('Full insert payload:', JSON.stringify(insertPayload, null, 2))
 
     const { data: createdRows, error } = await supabase
       .from('products')
