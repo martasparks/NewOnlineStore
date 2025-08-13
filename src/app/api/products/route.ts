@@ -234,6 +234,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Datu bāzes kļūda' }, { status: 500 })
     }
 
+    const headers: Record<string, string> = {
+      'Cache-Control': admin ? 'no-cache, no-store, must-revalidate, max-age=0' : 'public, s-maxage=300, stale-while-revalidate=600',
+      'Pragma': admin ? 'no-cache' : 'public',
+      'X-Content-Type-Options': 'nosniff',
+      'X-Frame-Options': 'DENY',
+      'X-Generated-At': new Date().toISOString()
+    }
+
+    if (admin) {
+      headers['Expires'] = '0'
+    }
+
     return NextResponse.json({
       products: data || [],
       pagination: {
@@ -242,13 +254,7 @@ export async function GET(request: NextRequest) {
         total: count || 0,
         totalPages: Math.ceil((count || 0) / limit)
       }
-    }, {
-      headers: {
-        'Cache-Control': admin ? 'no-cache' : 'public, s-maxage=300, stale-while-revalidate=600',
-        'X-Content-Type-Options': 'nosniff',
-        'X-Frame-Options': 'DENY'
-      }
-    })
+    }, { headers })
 
   } catch (error) {
     console.error('Products GET error:', error)

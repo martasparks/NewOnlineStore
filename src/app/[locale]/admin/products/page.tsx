@@ -22,6 +22,7 @@ import {
 import ProductModal from '@/components/admin/products/ProductModal'
 import { useAlert } from '@lib/store/alert'
 import { useLoading } from '@hooks/useLoading'
+import { forceRefreshAdminData, getCacheBustParam } from '@lib/cache-utils'
 import {
   Popover,
   PopoverContent,
@@ -32,13 +33,36 @@ interface ProductsData {
   products: Product[]
 }
 
-const fetcher = (url: string) => fetch(url).then(res => {
+const fetcher = (url: string) => fetch(url, {
+  // Force fresh data, prevent browser cache
+  cache: 'no-cache',
+  headers: {
+    'Cache-Control': 'no-cache',
+    'Pragma': 'no-cache'
+  }
+}).then(res => {
   if (!res.ok) throw new Error('Network response was not ok')
   return res.json()
 })
 
 export default function ProductsAdminPage() {
-  const { data: productsData, mutate, error } = useSWR<ProductsData>('/api/products?admin=true', fetcher)
+  const { data: productsData, mutate, error } = useSWR<ProductsData>(
+    // Add cache-busting parameter to force fresh data
+    `/api/products?admin=true&${getCacheBustParam()}`, 
+    fetcher,
+    {
+      // Aggressive cache busting for admin
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
+      refreshInterval: 0, // Don't auto-refresh, only manual
+      dedupingInterval: 0, // No deduping, always fresh
+      errorRetryCount: 3,
+      errorRetryInterval: 1000,
+      // Add timestamp to force cache bust
+      refreshWhenHidden: false,
+      refreshWhenOffline: false
+    }
+  )
   const [selected, setSelected] = useState<Product | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
@@ -78,7 +102,8 @@ export default function ProductsAdminPage() {
         }
 
         setAlert(data.message || 'Produkts dzēsts', 'success')
-        mutate()
+        // Force complete refresh with cache busting
+        await forceRefreshAdminData(mutate, '/api/products')
       } catch (err) {
         setAlert(
           err instanceof Error ? err.message : 'Kļūda dzēšot produktu', 
@@ -111,7 +136,8 @@ export default function ProductsAdminPage() {
           `Produkts "${name}" ${newStatus === 'active' ? 'aktivizēts' : 'deaktivizēts'}`, 
           'success'
         )
-        mutate()
+        // Force complete refresh with cache busting
+        await forceRefreshAdminData(mutate, '/api/products')
       } catch (err) {
         setAlert(
           err instanceof Error ? err.message : 'Neizdevās mainīt statusu', 
@@ -514,8 +540,9 @@ if (error) {
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         initialData={selected}
-        onSave={() => {
-          mutate()
+        onSave={async () => {
+          // Force complete refresh with cache busting
+          await forceRefreshAdminData(mutate, '/api/products')
           setSelected(null)
         }}
       />

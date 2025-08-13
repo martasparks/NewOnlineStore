@@ -19,26 +19,37 @@ export default function ImageUploadSection({
   onImagesChange
 }: ImageUploadSectionProps) {
   const [uploading, setUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
   const { setAlert } = useAlert()
 
   const handleImageUpload = async (files: FileList) => {
     setUploading(true)
-    const uploadedUrls: string[] = []
+    setUploadProgress(0)
+    
+    const fileArray = Array.from(files)
     const errors: string[] = []
-
+    
     try {
-      for (const file of Array.from(files)) {
-        // Klienta puses validācija
+      // Client-side validation first
+      const validFiles = fileArray.filter(file => {
         if (!file.type.startsWith('image/')) {
           errors.push(`${file.name}: Nav attēla fails`)
-          continue
+          return false
         }
-
         if (file.size > 10 * 1024 * 1024) {
           errors.push(`${file.name}: Fails pārāk liels (max 10MB)`)
-          continue
+          return false
         }
+        return true
+      })
 
+      if (validFiles.length === 0) {
+        setAlert(errors.join(', '), 'error')
+        return
+      }
+
+      // 🚀 PARALLEL UPLOAD - Upload all files simultaneously
+      const uploadPromises = validFiles.map(async (file, index) => {
         const formData = new FormData()
         formData.append('file', file)
         formData.append('folder', 'products')
@@ -46,42 +57,73 @@ export default function ImageUploadSection({
         try {
           const response = await fetch('/api/upload', {
             method: 'POST',
-            body: formData
+            body: formData,
+            // Add timeout for faster failure detection
+            signal: AbortSignal.timeout(30000) // 30s timeout
           })
 
           if (response.ok) {
             const data = await response.json()
-            uploadedUrls.push(data.url)
+            setUploadProgress(prev => prev + (100 / validFiles.length))
+            return { success: true, url: data.url, fileName: file.name }
           } else {
             const error = await response.json()
-            errors.push(`${file.name}: ${error.error || 'Augšupielādes kļūda'}`)
+            return { 
+              success: false, 
+              error: `${file.name}: ${error.error || 'Augšupielādes kļūda'}`,
+              fileName: file.name 
+            }
           }
-        } catch {
-          errors.push(`${file.name}: Tīkla kļūda`)
+        } catch (uploadError) {
+          return { 
+            success: false, 
+            error: `${file.name}: Tīkla kļūda vai timeout`,
+            fileName: file.name 
+          }
         }
-      }
+      })
 
-      // Atjaunojam attēlus
-      if (uploadedUrls.length > 0) {
-        onImagesChange([...images, ...uploadedUrls])
-        const successMessage = uploadedUrls.length === 1 
+      // Wait for all uploads to complete
+      const results = await Promise.all(uploadPromises)
+      
+      // Separate successful uploads from errors
+      const successfulUploads = results
+        .filter(result => result.success)
+        .map(result => result.url)
+        
+      const uploadErrors = results
+        .filter(result => !result.success)
+        .map(result => result.error)
+
+      // Update images with successful uploads
+      if (successfulUploads.length > 0) {
+        onImagesChange([...images, ...successfulUploads])
+        
+        const successMessage = successfulUploads.length === 1 
           ? '1 attēls augšupielādēts' 
-          : `${uploadedUrls.length} attēli augšupielādēti`
+          : `${successfulUploads.length} attēli augšupielādēti`
         setAlert(successMessage, 'success')
       }
 
-      // Rādām kļūdas
-      if (errors.length > 0) {
-        const errorMessage = errors.length === 1 
-          ? errors[0] 
-          : `${errors.length} kļūdas augšupielādē`
+      // Show errors if any
+      if (uploadErrors.length > 0) {
+        const errorMessage = uploadErrors.length === 1 
+          ? uploadErrors[0] ?? 'Kļūda augšupielādē'
+          : `${uploadErrors.length} kļūdas augšupielādē`
         setAlert(errorMessage, 'error')
       }
 
-    } catch {
+      // Show initial validation errors
+      if (errors.length > 0) {
+        setAlert(errors.join(', '), 'warning')
+      }
+
+    } catch (generalError) {
+      console.error('Upload error:', generalError)
       setAlert('Neizdevās augšupielādēt attēlus', 'error')
     } finally {
       setUploading(false)
+      setUploadProgress(0)
     }
   }
 
@@ -114,7 +156,7 @@ export default function ImageUploadSection({
         </span>
       </div>
 
-      {/* Upload zonā */}
+      {/* Upload zona */}
       <div
         className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-gray-400 transition-colors"
         onDragOver={handleDragOver}
@@ -144,12 +186,21 @@ export default function ImageUploadSection({
                 input.click()
               }}
             >
-              {uploading ? 'Augšupielādē...' : 'Izvēlieties failus'}
+              {uploading ? `Augšupielādē... ${Math.round(uploadProgress)}%` : 'Izvēlieties failus'}
             </Button>
           </div>
           <p className="text-sm text-gray-500">
             PNG, JPG, WebP līdz 10MB. Vairāki faili atļauti.
           </p>
+          
+          {uploading && (
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div 
+                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                style={{ width: `${uploadProgress}%` }}
+              />
+            </div>
+          )}
         </div>
       </div>
 
@@ -167,6 +218,7 @@ export default function ImageUploadSection({
                 fill
                 className="object-cover"
                 sizes="(max-width: 768px) 50vw, 25vw"
+                priority={index < 4} // Prioritize first 4 images
               />
               <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-opacity flex items-center justify-center">
                 <Button
