@@ -15,3 +15,9 @@
 .animate-fadeInUp {
   animation: fadeInUp 0.6s ease-out forwards;
 }
+
+body[data-modal-open] .xl\:col-span-5 .sticky {
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}

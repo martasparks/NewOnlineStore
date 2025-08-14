@@ -120,27 +120,26 @@ export default function ProductPage() {
     }
   }, [slug])
 
-  // Produkta lapā pievieno šo useEffect
-  useEffect(() => {
-    // Klausāmies uz modal state izmaiņām no ProductGallery
-    const handleModalChange = (event: CustomEvent) => {
-      if (event.detail.isOpen) {
-        document.body.setAttribute('data-modal-open', 'true')
-        document.body.style.overflow = 'hidden'
-      } else {
-        document.body.removeAttribute('data-modal-open')
-        document.body.style.overflow = 'auto'
-      }
-    }
-
-    window.addEventListener('gallery-modal-change', handleModalChange as EventListener)
-    
-    return () => {
-      window.removeEventListener('gallery-modal-change', handleModalChange as EventListener)
+// Pievieno šo useEffect produkta lapā
+useEffect(() => {
+  const handleModalChange = (event: CustomEvent) => {
+    if (event.detail.isOpen) {
+      document.body.setAttribute('data-modal-open', 'true')
+      document.body.style.overflow = 'hidden'
+    } else {
       document.body.removeAttribute('data-modal-open')
       document.body.style.overflow = 'auto'
     }
-  }, [])
+  }
+
+  window.addEventListener('gallery-modal-change', handleModalChange as EventListener)
+  
+  return () => {
+    window.removeEventListener('gallery-modal-change', handleModalChange as EventListener)
+    document.body.removeAttribute('data-modal-open')
+    document.body.style.overflow = 'auto'
+  }
+}, [])
 
   const fetchProduct = async (productSlug: string) => {
       try {
