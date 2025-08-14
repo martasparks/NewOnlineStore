@@ -63,8 +63,8 @@ export default function CategoryModal({
       name: rest.name || '',
       slug: rest.slug || '',
       url: rest.url || '',
-      meta_title: rest.meta_title || '',  // Handle optional
-      meta_description: rest.meta_description || '',  // Handle optional
+      meta_title: rest.meta_title || '',
+      meta_description: rest.meta_description || '',
       order_index: rest.order_index || 0,
       is_active: rest.is_active ?? true,
     })
@@ -142,9 +142,6 @@ export default function CategoryModal({
 
   const handleSubmit = async () => {
     await withLoading(async () => {
-      console.log('Submitting category:', category)
-      console.log('Is edit mode:', isEdit)
-      console.log('Category ID:', category.id)
 
       if (isEdit && !category.id) {
         setAlert('Kļūda: kategorijas ID nav atrasts', 'error')
@@ -157,12 +154,11 @@ export default function CategoryModal({
           return
         }
 
-        // Saglabājam kategoriju
         const res = await fetch('/api/navigation/categories', {
           method: isEdit ? 'PUT' : 'POST',
           headers: { 
             'Content-Type': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest' // Pievienojam CSRF header
+            'X-Requested-With': 'XMLHttpRequest'
           },
           body: JSON.stringify(category),
         })
@@ -182,7 +178,6 @@ export default function CategoryModal({
           return
         }
 
-        // Saglabājam subkategorijas
         for (const sub of subcategories) {
           try {
             const method = sub.id ? 'PUT' : 'POST'
@@ -190,11 +185,12 @@ export default function CategoryModal({
               method,
               headers: { 
                 'Content-Type': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest' // Pievienojam CSRF header
+                'X-Requested-With': 'XMLHttpRequest'
               },
               body: JSON.stringify({
                 ...sub,
                 category_id: catId,
+                url: `/${category.slug}/${sub.slug}`
               }),
             })
 
@@ -203,7 +199,6 @@ export default function CategoryModal({
             if (!subResponse.ok) {
               console.error('Subcategory save error:', subData)
               setAlert(`Neizdevās saglabāt apakškategoriju "${sub.name}": ${subData.error}`, 'error')
-              // Turpinām ar citām subkategorijām
             } else {
               console.log('Subcategory saved:', subData)
             }

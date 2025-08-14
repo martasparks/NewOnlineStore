@@ -32,17 +32,14 @@ type Category = {
   subitems: Subcategory[]
 }
 
-// Add API response types
 type CategoryApiResponse = Omit<Category, 'subitems'>
 type SubcategoryApiResponse = Subcategory
 
-// Fast fetcher function
 const fetcher = (url: string) => fetch(url).then(res => {
   if (!res.ok) throw new Error('Failed to fetch')
   return res.json()
 })
 
-// Check if we're in admin context
 const useAdminParam = () => {
   return useMemo(() => {
     if (typeof window === 'undefined') return ''
@@ -54,14 +51,13 @@ export default function MainNavigation() {
   const [hovered, setHovered] = useState<string | null>(null)
   const adminParam = useAdminParam()
 
-  // Parallel SWR requests - much faster!
   const { data: cats, error: catsError } = useSWR(
     `/api/navigation/categories${adminParam}`, 
     fetcher,
     {
       revalidateOnFocus: false,
       revalidateOnReconnect: false,
-      dedupingInterval: 30000, // 30 seconds
+      dedupingInterval: 30000,
     }
   )
   
@@ -71,11 +67,10 @@ export default function MainNavigation() {
     {
       revalidateOnFocus: false,
       revalidateOnReconnect: false,
-      dedupingInterval: 30000, // 30 seconds
+      dedupingInterval: 30000,
     }
   )
 
-  // Memoize combined categories to prevent unnecessary recalculations
   const categories = useMemo(() => {
     if (!cats || !subs) return []
     
@@ -85,16 +80,6 @@ export default function MainNavigation() {
     }))
   }, [cats, subs])
 
-  // Don't show loading for now - will add back when needed
-  // if ((!cats && !catsError) || (!subs && !subsError)) {
-  //   return (
-  //     <nav className="bg-white border-t border-gray-200 text-sm relative h-14">
-  //       <Loading variant="dots" className="h-14" />
-  //     </nav>
-  //   )
-  // }
-
-  // Error state - show empty nav instead of breaking
   if (catsError || subsError) {
     console.error('Navigation fetch error:', catsError || subsError)
     return (
@@ -154,7 +139,7 @@ export default function MainNavigation() {
                 {categories.find((cat: Category) => cat.name === hovered)?.subitems?.map((item: Subcategory, index: number) => (
                   <Link
                     key={`${hovered}-${item.name}`}
-                    href={item.url || '#'}
+                    href={`/${categories.find((c: Category) => c.name === hovered)?.slug}/${item.slug}`}
                     className="group flex items-center gap-3 p-4 rounded-lg hover:bg-red-50 transition-all duration-200 transform hover:scale-105"
                     style={{
                       animationDelay: `${index * 50}ms`,
