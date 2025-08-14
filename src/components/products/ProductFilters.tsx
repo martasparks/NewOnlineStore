@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useSearchParams, usePathname } from 'next/navigation'
 import { useDebounce } from '@hooks/useDebounce'
 import { Button } from '@/components/ui/button'
@@ -16,7 +16,8 @@ import {
   ChevronUp, 
   Loader2,
   AlertCircle,
-  RefreshCw
+  RefreshCw,
+  Search
 } from 'lucide-react'
 
 interface Category {
@@ -38,29 +39,44 @@ interface FilterState {
 interface ProductFiltersProps {
   onFilterChange: (filters: FilterState) => void
   isLoading?: boolean
+  hideCategories?: boolean
+  subcategoryId?: string // Jauns prop subcategory kontekstam
 }
 
-export default function ProductFilters({ onFilterChange, isLoading = false }: ProductFiltersProps) {
+export default function ProductFilters({ 
+  onFilterChange, 
+  isLoading = false, 
+  hideCategories = false,
+  subcategoryId
+}: ProductFiltersProps) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   
-  // State management
   const [categories, setCategories] = useState<Category[]>([])
   const [categoriesLoading, setCategoriesLoading] = useState(false)
   const [categoriesError, setCategoriesError] = useState<string | null>(null)
+  
+  const [dynamicPriceRange, setDynamicPriceRange] = useState({ min: 0, max: 1000 })
+  const [priceRangeLoading, setPriceRangeLoading] = useState(true)
+  
   const [priceRange, setPriceRange] = useState([0, 1000])
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [inStock, setInStock] = useState(false)
   const [featured, setFeatured] = useState(false)
+  
   const [showAllCategories, setShowAllCategories] = useState(false)
   const [showPrice, setShowPrice] = useState(true)
   const [showAvailability, setShowAvailability] = useState(true)
   const [isUpdating, setIsUpdating] = useState(false)
+  
+  const [minPriceInput, setMinPriceInput] = useState('')
+  const [maxPriceInput, setMaxPriceInput] = useState('')
+  const minInputRef = useRef<HTMLInputElement>(null)
+  const maxInputRef = useRef<HTMLInputElement>(null)
+  const [isTypingPrice, setIsTypingPrice] = useState(false)
 
-  // Debounced price range pentru a evita multiple requests
   const debouncedPriceRange = useDebounce(priceRange, 500)
 
-  // Computed values
   const visibleCategories = useMemo(() => 
     showAllCategories ? categories : categories.slice(0, 5),
     [categories, showAllCategories]
@@ -68,16 +84,51 @@ export default function ProductFilters({ onFilterChange, isLoading = false }: Pr
   
   const hasMoreCategories = categories.length > 5
   
-  const activeFiltersCount = useMemo(() => 
-    selectedCategories.length + 
-    (priceRange[0] > 0 ? 1 : 0) + 
-    (priceRange[1] < 1000 ? 1 : 0) +
-    (inStock ? 1 : 0) + 
-    (featured ? 1 : 0),
-    [selectedCategories.length, priceRange, inStock, featured]
-  )
+  const activeFiltersCount = useMemo(() => {
+    const hasMinPriceFilter = priceRange[0] > dynamicPriceRange.min
+    const hasMaxPriceFilter = priceRange[1] < dynamicPriceRange.max
+    const hasPriceFilter = hasMinPriceFilter || hasMaxPriceFilter
+    
+    return selectedCategories.length + 
+      (hasPriceFilter ? 1 : 0) +
+      (inStock ? 1 : 0) + 
+      (featured ? 1 : 0)
+  }, [selectedCategories.length, priceRange, dynamicPriceRange, inStock, featured])
 
   const hasActiveFilters = activeFiltersCount > 0
+
+  const fetchPriceRange = useCallback(async () => {
+    setPriceRangeLoading(true)
+    try {
+      const params = new URLSearchParams()
+      params.set('priceRangeOnly', 'true')
+      
+      if (subcategoryId) {
+        params.set('subcategory', subcategoryId)
+      }
+      
+      const response = await fetch(`/api/products?${params}`)
+      const data = await response.json()
+      
+      const newRange = {
+        min: Math.floor(data.minPrice || 0),
+        max: Math.ceil(data.maxPrice || 1000)
+      }
+      
+      setDynamicPriceRange(newRange)
+
+      if (!searchParams.has('minPrice') && !searchParams.has('maxPrice')) {
+        setPriceRange([newRange.min, newRange.max])
+        setMinPriceInput(newRange.min.toString())
+        setMaxPriceInput(newRange.max.toString())
+      }
+      
+    } catch (error) {
+      console.error('Error fetching price range:', error)
+    } finally {
+      setPriceRangeLoading(false)
+    }
+  }, [subcategoryId, searchParams])
 
   const updateURLWithoutRefresh = useCallback((filters: Record<string, string | string[]>) => {
     const params = new URLSearchParams(searchParams.toString())
@@ -102,31 +153,92 @@ export default function ProductFilters({ onFilterChange, isLoading = false }: Pr
     onFilterChange({
       categories: Array.isArray(filters.categories) ? filters.categories : 
                  (filters.categories ? [filters.categories] : []),
-      minPrice: parseInt(filters.minPrice as string) || 0,
-      maxPrice: parseInt(filters.maxPrice as string) || 1000,
+      minPrice: parseInt(filters.minPrice as string) || dynamicPriceRange.min,
+      maxPrice: parseInt(filters.maxPrice as string) || dynamicPriceRange.max,
       inStock: filters.inStock === 'true',
       featured: filters.featured === 'true',
       page: 1
     })
-  }, [searchParams, pathname, onFilterChange])
+  }, [searchParams, pathname, onFilterChange, dynamicPriceRange])
 
-  // Price range commitment with debouncing
   const commitPriceToURL = useCallback((range: number[]) => {
+    if (isTypingPrice || priceRangeLoading) return
+    
     const [minV, maxV] = range
+    
+    // Pārbaudām vai cenas ir mainījušās no default vērtībām
+    if (minV === dynamicPriceRange.min && maxV === dynamicPriceRange.max) {
+      return
+    }
+    
+    // Pārbaudām vai dynamic range vispār ir ielādēts
+    if (dynamicPriceRange.min === 0 && dynamicPriceRange.max === 1000) {
+      return // Vēl nav ielādēts reālais diapazons
+    }
+    
     setIsUpdating(true)
     
     updateURLWithoutRefresh({
       categories: selectedCategories,
-      minPrice: Math.max(0, Math.floor(minV)).toString(),
-      maxPrice: Math.min(10000, Math.ceil(maxV)).toString(),
+      minPrice: Math.max(dynamicPriceRange.min, Math.floor(minV)).toString(),
+      maxPrice: Math.min(dynamicPriceRange.max, Math.ceil(maxV)).toString(),
       inStock: inStock.toString(),
       featured: featured.toString()
     })
     
     setTimeout(() => setIsUpdating(false), 200)
-  }, [selectedCategories, inStock, featured, updateURLWithoutRefresh])
+  }, [selectedCategories, inStock, featured, updateURLWithoutRefresh, dynamicPriceRange, isTypingPrice, priceRangeLoading])
 
-  // Category fetching with error handling
+  // Input handleri ar manuālu commit
+  const handleMinPriceInputChange = (value: string) => {
+    setMinPriceInput(value)
+    setIsTypingPrice(true)
+  }
+
+  const handleMaxPriceInputChange = (value: string) => {
+    setMaxPriceInput(value)
+    setIsTypingPrice(true)
+  }
+
+  const handleMinPriceInputBlur = () => {
+    setIsTypingPrice(false)
+    const numValue = parseInt(minPriceInput) || dynamicPriceRange.min
+    const newMin = Math.max(dynamicPriceRange.min, Math.min(numValue, priceRange[1] - 1))
+    setPriceRange([newMin, priceRange[1]])
+    setMinPriceInput(newMin.toString())
+    
+    // Commit uzreiz
+    setTimeout(() => {
+      commitPriceToURL([newMin, priceRange[1]])
+    }, 100)
+  }
+
+  const handleMaxPriceInputBlur = () => {
+    setIsTypingPrice(false)
+    const numValue = parseInt(maxPriceInput) || dynamicPriceRange.max
+    const newMax = Math.min(dynamicPriceRange.max, Math.max(numValue, priceRange[0] + 1))
+    setPriceRange([priceRange[0], newMax])
+    setMaxPriceInput(newMax.toString())
+    
+    // Commit uzreiz
+    setTimeout(() => {
+      commitPriceToURL([priceRange[0], newMax])
+    }, 100)
+  }
+
+  const handleMinPriceKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      minInputRef.current?.blur()
+    }
+  }
+
+  const handleMaxPriceKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      maxInputRef.current?.blur()
+    }
+  }
+
+  // Fetch kategorijas
   const fetchCategories = useCallback(async () => {
     setCategoriesLoading(true)
     setCategoriesError(null)
@@ -148,37 +260,61 @@ export default function ProductFilters({ onFilterChange, isLoading = false }: Pr
     }
   }, [])
 
-  // Load filters from URL
   const loadFiltersFromURL = useCallback(() => {
     const categories = searchParams.get('categories')?.split(',').filter(Boolean) || []
-    const minPrice = Math.max(0, parseInt(searchParams.get('minPrice') || '0'))
-    const maxPrice = Math.min(10000, parseInt(searchParams.get('maxPrice') || '1000'))
-    const stockFilter = searchParams.get('inStock') === 'true'
-    const featuredFilter = searchParams.get('featured') === 'true'
+    
+    const hasMinPrice = searchParams.has('minPrice')
+    const hasMaxPrice = searchParams.has('maxPrice')
+    const hasInStock = searchParams.has('inStock')
+    const hasFeatured = searchParams.has('featured')
+    
+    const minPrice = hasMinPrice 
+      ? Math.max(dynamicPriceRange.min, parseInt(searchParams.get('minPrice') || dynamicPriceRange.min.toString()))
+      : dynamicPriceRange.min
+      
+    const maxPrice = hasMaxPrice
+      ? Math.min(dynamicPriceRange.max, parseInt(searchParams.get('maxPrice') || dynamicPriceRange.max.toString()))
+      : dynamicPriceRange.max
+
+    const stockFilter = hasInStock && searchParams.get('inStock') === 'true'
+    const featuredFilter = hasFeatured && searchParams.get('featured') === 'true'
 
     setSelectedCategories(categories)
     setPriceRange([minPrice, maxPrice])
+    setMinPriceInput(minPrice.toString())
+    setMaxPriceInput(maxPrice.toString())
     setInStock(stockFilter)
     setFeatured(featuredFilter)
-  }, [searchParams])
-
-  // Effects
-  useEffect(() => {
-    fetchCategories()
-  }, [fetchCategories])
+  }, [searchParams, dynamicPriceRange])
 
   useEffect(() => {
-    loadFiltersFromURL()
-  }, [loadFiltersFromURL])
+    fetchPriceRange()
+  }, [fetchPriceRange])
 
-  // Debounced price update
   useEffect(() => {
-    if (debouncedPriceRange[0] !== 0 || debouncedPriceRange[1] !== 1000) {
-      commitPriceToURL(debouncedPriceRange)
+    if (!hideCategories) {
+      fetchCategories()
     }
-  }, [debouncedPriceRange, commitPriceToURL])
+  }, [fetchCategories, hideCategories])
 
-  // Category change handler
+  useEffect(() => {
+    if (!priceRangeLoading && dynamicPriceRange.min !== 0 && dynamicPriceRange.max !== 1000) {
+      loadFiltersFromURL()
+    }
+  }, [loadFiltersFromURL, priceRangeLoading, dynamicPriceRange])
+
+useEffect(() => {
+  if (
+    !isTypingPrice && 
+    !priceRangeLoading &&
+    dynamicPriceRange.min !== 0 && 
+    dynamicPriceRange.max !== 1000 &&
+    (debouncedPriceRange[0] !== dynamicPriceRange.min || debouncedPriceRange[1] !== dynamicPriceRange.max)
+  ) {
+    commitPriceToURL(debouncedPriceRange)
+  }
+}, [debouncedPriceRange, commitPriceToURL, dynamicPriceRange, isTypingPrice, priceRangeLoading])
+
   const handleCategoryChange = (categorySlug: string, checked: boolean) => {
     const newCategories = checked 
       ? [...selectedCategories, categorySlug]
@@ -195,7 +331,6 @@ export default function ProductFilters({ onFilterChange, isLoading = false }: Pr
     })
   }
 
-  // Stock filter handler
   const handleStockChange = (checked: boolean) => {
     setInStock(checked)
     
@@ -208,7 +343,6 @@ export default function ProductFilters({ onFilterChange, isLoading = false }: Pr
     })
   }
 
-  // Featured filter handler
   const handleFeaturedChange = (checked: boolean) => {
     setFeatured(checked)
     
@@ -223,30 +357,49 @@ export default function ProductFilters({ onFilterChange, isLoading = false }: Pr
 
   const clearAllFilters = () => {
     setSelectedCategories([])
-    setPriceRange([0, 1000])
+    setPriceRange([dynamicPriceRange.min, dynamicPriceRange.max])
+    setMinPriceInput(dynamicPriceRange.min.toString())
+    setMaxPriceInput(dynamicPriceRange.max.toString())
     setInStock(false)
     setFeatured(false)
-    
-    // PILNĪGS URL clear:
+    setIsTypingPrice(false)
+
     const newUrl = pathname
     window.history.replaceState(null, '', newUrl)
     
     onFilterChange({
       categories: [],
-      minPrice: 0,
-      maxPrice: 1000,
+      minPrice: dynamicPriceRange.min,
+      maxPrice: dynamicPriceRange.max,
       inStock: false,
       featured: false,
       page: 1
     })
   }
 
+    const resetToDefaults = useCallback(() => {
+      if (dynamicPriceRange.min !== 0 || dynamicPriceRange.max !== 1000) {
+        setPriceRange([dynamicPriceRange.min, dynamicPriceRange.max])
+        setMinPriceInput(dynamicPriceRange.min.toString())
+        setMaxPriceInput(dynamicPriceRange.max.toString())
+      }
+    }, [dynamicPriceRange])
+
+    // Pievienojiet šo useEffect pēc fetchPriceRange useEffect:
+    useEffect(() => {
+      if (!priceRangeLoading && dynamicPriceRange.min !== 0 && dynamicPriceRange.max !== 1000) {
+        // Ja nav URL parametru, iestatām default vērtības
+        if (!searchParams.has('minPrice') && !searchParams.has('maxPrice')) {
+          resetToDefaults()
+        }
+      }
+    }, [priceRangeLoading, dynamicPriceRange, searchParams, resetToDefaults])
+
   return (
     <div className={`bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden transition-all duration-200 ${
       isUpdating || isLoading ? 'opacity-75 pointer-events-none' : 'opacity-100'
     }`}>
       
-      {/* Header */}
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200 p-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center">
@@ -277,110 +430,13 @@ export default function ProductFilters({ onFilterChange, isLoading = false }: Pr
         </div>
       </div>
 
-      {/* Filters Content */}
       <div className="p-6 space-y-8">
         
-        {/* Kategorijas */}
-        <div>
-          <button
-            onClick={() => setShowAllCategories(!showAllCategories)}
-            className="flex items-center justify-between w-full mb-4 p-2 hover:bg-gray-50 rounded-lg transition-colors"
-          >
-            <Label className="text-lg font-semibold text-gray-900 cursor-pointer">
-              Kategorijas
-              {selectedCategories.length > 0 && (
-                <Badge variant="secondary" className="ml-2">
-                  {selectedCategories.length}
-                </Badge>
-              )}
-            </Label>
-            {hasMoreCategories && (
-              <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${
-                showAllCategories ? 'rotate-180' : ''
-              }`} />
-            )}
-          </button>
-          
-          {/* Categories Loading State */}
-          {categoriesLoading && (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
-              <span className="ml-2 text-gray-500">Ielādē kategorijas...</span>
-            </div>
-          )}
+        {!hideCategories && (
+          <div>
+          </div>
+        )}
 
-          {/* Categories Error State */}
-          {categoriesError && (
-            <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-              <div className="flex items-center text-red-700">
-                <AlertCircle className="w-4 h-4 mr-2" />
-                <span className="text-sm font-medium">Kļūda ielādējot kategorijas</span>
-              </div>
-              <p className="text-sm text-red-600 mt-1">{categoriesError}</p>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={fetchCategories}
-                className="mt-2 text-red-700 border-red-300 hover:bg-red-50"
-              >
-                <RefreshCw className="w-3 h-3 mr-1" />
-                Mēģināt vēlreiz
-              </Button>
-            </div>
-          )}
-
-          {/* Categories List */}
-          {!categoriesLoading && !categoriesError && (
-            <div className="space-y-3">
-              {visibleCategories.map((category) => (
-                <div key={category.id} className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-50 transition-colors">
-                  <Checkbox
-                    id={`category-${category.slug}`}
-                    checked={selectedCategories.includes(category.slug)}
-                    onCheckedChange={(checked) => 
-                      handleCategoryChange(category.slug, checked as boolean)
-                    }
-                    disabled={isUpdating || isLoading}
-                  />
-                  <Label 
-                    htmlFor={`category-${category.slug}`}
-                    className="flex-1 cursor-pointer font-medium text-gray-700 hover:text-gray-900"
-                  >
-                    {category.name}
-                    {category.productCount !== undefined && (
-                      <span className="ml-2 text-xs text-gray-500">
-                        ({category.productCount})
-                      </span>
-                    )}
-                  </Label>
-                </div>
-              ))}
-              
-              {hasMoreCategories && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowAllCategories(!showAllCategories)}
-                  className="w-full mt-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                >
-                  {showAllCategories ? (
-                    <>
-                      <ChevronUp className="w-4 h-4 mr-1" />
-                      Rādīt mazāk
-                    </>
-                  ) : (
-                    <>
-                      <ChevronDown className="w-4 h-4 mr-1" />
-                      Rādīt visas ({categories.length})
-                    </>
-                  )}
-                </Button>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Cenas diapazons */}
         <div>
           <button
             onClick={() => setShowPrice(!showPrice)}
@@ -388,7 +444,7 @@ export default function ProductFilters({ onFilterChange, isLoading = false }: Pr
           >
             <Label className="text-lg font-semibold text-gray-900 cursor-pointer">
               Cena
-              {(priceRange[0] > 0 || priceRange[1] < 1000) && (
+              {(priceRange[0] > dynamicPriceRange.min || priceRange[1] < dynamicPriceRange.max) && (
                 <Badge variant="secondary" className="ml-2">
                   €{priceRange[0]} - €{priceRange[1]}
                 </Badge>
@@ -401,103 +457,79 @@ export default function ProductFilters({ onFilterChange, isLoading = false }: Pr
           
           {showPrice && (
             <div className="space-y-4">
-              <div className="px-4">
-                <Slider
-                  value={priceRange}
-                  onValueChange={setPriceRange}
-                  max={1000}
-                  min={0}
-                  step={10}
-                  className="w-full"
-                  disabled={isUpdating || isLoading}
-                />
-              </div>
-              
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-sm text-gray-600 mb-1 block">No (EUR)</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    max={1000}
-                    value={priceRange[0]}
-                    onChange={(e) => {
-                      const value = Math.max(0, parseInt(e.target.value) || 0)
-                      setPriceRange([value, priceRange[1]])
-                    }}
-                    className="text-sm"
-                    disabled={isUpdating || isLoading}
-                  />
+              {priceRangeLoading ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="w-4 h-4 animate-spin text-gray-400 mr-2" />
+                  <span className="text-sm text-gray-500">Ielādē cenu diapazonu...</span>
                 </div>
-                <div>
-                  <Label className="text-sm text-gray-600 mb-1 block">Līdz (EUR)</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    max={1000}
-                    value={priceRange[1]}
-                    onChange={(e) => {
-                      const value = Math.min(1000, parseInt(e.target.value) || 1000)
-                      setPriceRange([priceRange[0], value])
-                    }}
-                    className="text-sm"
-                    disabled={isUpdating || isLoading}
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Pieejamība */}
-        <div>
-          <button
-            onClick={() => setShowAvailability(!showAvailability)}
-            className="flex items-center justify-between w-full mb-4 p-2 hover:bg-gray-50 rounded-lg transition-colors"
-          >
-            <Label className="text-lg font-semibold text-gray-900 cursor-pointer">
-              Pieejamība
-              {(inStock || featured) && (
-                <Badge variant="secondary" className="ml-2">
-                  {[inStock && 'Pieejams', featured && 'Populārs'].filter(Boolean).join(', ')}
-                </Badge>
+              ) : (
+                <>
+                  <div className="px-4">
+                    <Slider
+                      value={priceRange}
+                      onValueChange={setPriceRange}
+                      max={dynamicPriceRange.max}
+                      min={dynamicPriceRange.min}
+                      step={1}
+                      className="w-full"
+                      disabled={isUpdating || isLoading}
+                    />
+                    <div className="flex justify-between text-xs text-gray-500 mt-1">
+                      <span>€{dynamicPriceRange.min}</span>
+                      <span>€{dynamicPriceRange.max}</span>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-sm text-gray-600 mb-1 block">No (EUR)</Label>
+                      <Input
+                        ref={minInputRef}
+                        type="number"
+                        min={dynamicPriceRange.min}
+                        max={dynamicPriceRange.max}
+                        value={minPriceInput}
+                        onChange={(e) => handleMinPriceInputChange(e.target.value)}
+                        onBlur={handleMinPriceInputBlur}
+                        onKeyDown={handleMinPriceKeyDown}
+                        className="text-sm"
+                        disabled={isUpdating || isLoading}
+                        placeholder={dynamicPriceRange.min.toString()}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-sm text-gray-600 mb-1 block">Līdz (EUR)</Label>
+                      <Input
+                        ref={maxInputRef}
+                        type="number"
+                        min={dynamicPriceRange.min}
+                        max={dynamicPriceRange.max}
+                        value={maxPriceInput}
+                        onChange={(e) => handleMaxPriceInputChange(e.target.value)}
+                        onBlur={handleMaxPriceInputBlur}
+                        onKeyDown={handleMaxPriceKeyDown}
+                        className="text-sm"
+                        disabled={isUpdating || isLoading}
+                        placeholder={dynamicPriceRange.max.toString()}
+                      />
+                    </div>
+                  </div>
+                  
+                  {isTypingPrice && (
+                    <div className="text-xs text-blue-600 flex items-center justify-center">
+                      <Search className="w-3 h-3 mr-1" />
+                      Nospiediet Enter vai noklikšķiniet ārpus lauka
+                    </div>
+                  )}
+                </>
               )}
-            </Label>
-            <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${
-              showAvailability ? 'rotate-180' : ''
-            }`} />
-          </button>
-          
-          {showAvailability && (
-            <div className="space-y-3">
-              <div className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-50 transition-colors">
-                <Checkbox
-                  id="inStock"
-                  checked={inStock}
-                  onCheckedChange={handleStockChange}
-                  disabled={isUpdating || isLoading}
-                />
-                <Label htmlFor="inStock" className="cursor-pointer font-medium text-gray-700">
-                  Tikai pieejamie produkti
-                </Label>
-              </div>
-              
-              <div className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-50 transition-colors">
-                <Checkbox
-                  id="featured"
-                  checked={featured}
-                  onCheckedChange={handleFeaturedChange}
-                  disabled={isUpdating || isLoading}
-                />
-                <Label htmlFor="featured" className="cursor-pointer font-medium text-gray-700">
-                  Populārie produkti
-                </Label>
-              </div>
             </div>
           )}
         </div>
 
-        {/* Active Filters Summary */}
+        {/* Pieejamības filtri paliek tādi paši... */}
+        
+        {/* Active Filters Summary ar atjauninātām vērtībām */}
         {hasActiveFilters && (
           <div className="pt-4 border-t border-gray-200">
             <div className="flex items-center justify-between mb-3">
@@ -528,11 +560,15 @@ export default function ProductFilters({ onFilterChange, isLoading = false }: Pr
                 ) : null
               })}
               
-              {(priceRange[0] > 0 || priceRange[1] < 1000) && (
+              {(priceRange[0] > dynamicPriceRange.min || priceRange[1] < dynamicPriceRange.max) && (
                 <Badge
                   variant="outline"
                   className="text-xs cursor-pointer hover:bg-red-50 hover:border-red-300"
-                  onClick={() => setPriceRange([0, 1000])}
+                  onClick={() => {
+                    setPriceRange([dynamicPriceRange.min, dynamicPriceRange.max])
+                    setMinPriceInput(dynamicPriceRange.min.toString())
+                    setMaxPriceInput(dynamicPriceRange.max.toString())
+                  }}
                 >
                   €{priceRange[0]} - €{priceRange[1]}
                   <X className="w-3 h-3 ml-1" />

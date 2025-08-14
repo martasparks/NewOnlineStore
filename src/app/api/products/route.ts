@@ -131,8 +131,86 @@ export async function GET(request: NextRequest) {
     const supabase = await createClient()
     const { searchParams } = new URL(request.url)
     
+    // Pārbaude vai tiek prasīts tikai cenu diapazons
+    const priceRangeOnly = searchParams.get('priceRangeOnly') === 'true'
+    
+    if (priceRangeOnly) {
+      // Atgriežam tikai min/max cenas
+      let priceQuery = supabase
+        .from('products')
+        .select('price')
+        .eq('status', 'active')
+
+      // Ja ir norādīta subcategory, filtrējam pēc tās
+      const subcategory = searchParams.get('subcategory')
+      if (subcategory && /^[a-zA-Z0-9-]+$/.test(subcategory)) {
+        priceQuery = priceQuery.eq('subcategory_id', subcategory)
+      }
+
+      // Ja ir norādīta category, filtrējam pēc tās
+      const category = searchParams.get('category')
+      if (category && /^[a-zA-Z0-9-]+$/.test(category)) {
+        priceQuery = priceQuery.eq('category_id', category)
+      }
+
+      // Ja ir kategoriju saraksts
+      const categoriesParam = searchParams.get('categories')
+      if (categoriesParam) {
+        const categorySlugs = categoriesParam.split(',').filter(slug => 
+          slug.trim() && /^[a-zA-Z0-9-]+$/.test(slug.trim())
+        )
+        
+        if (categorySlugs.length > 0) {
+          const { data: categoryData, error: categoryError } = await supabase
+            .from('navigation_categories')
+            .select('id')
+            .in('slug', categorySlugs)
+          
+          if (!categoryError && categoryData && categoryData.length > 0) {
+            const categoryIds = categoryData.map(cat => cat.id)
+            priceQuery = priceQuery.in('category_id', categoryIds)
+          }
+        }
+      }
+
+      const { data: priceData, error: priceError } = await priceQuery
+
+      if (priceError) {
+        console.error('Price range query error:', priceError)
+        return NextResponse.json({ 
+          minPrice: 0, 
+          maxPrice: 1000 
+        })
+      }
+
+      if (!priceData || priceData.length === 0) {
+        return NextResponse.json({ 
+          minPrice: 0, 
+          maxPrice: 1000 
+        })
+      }
+
+      const prices = priceData.map(p => p.price).filter(p => p != null && p >= 0)
+      
+      if (prices.length === 0) {
+        return NextResponse.json({ 
+          minPrice: 0, 
+          maxPrice: 1000 
+        })
+      }
+
+      const minPrice = Math.floor(Math.min(...prices))
+      const maxPrice = Math.ceil(Math.max(...prices))
+
+      return NextResponse.json({ 
+        minPrice: Math.max(0, minPrice), 
+        maxPrice: Math.max(minPrice + 1, maxPrice)
+      })
+    }
+    
+    // Turpinās esošā produktu iegūšanas loģika...
     const page = Math.max(1, parseInt(searchParams.get('page') || '1'))
-    const limit = Math.min(50, Math.max(1, parseInt(searchParams.get('limit') || '12'))) // Max 50 items per page
+    const limit = Math.min(50, Math.max(1, parseInt(searchParams.get('limit') || '12')))
     const admin = searchParams.get('admin') === 'true'
 
     if (admin) {

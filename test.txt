@@ -1,0 +1,1761 @@
+ProductFilters.tsx:
+'use client'
+
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useSearchParams, usePathname } from 'next/navigation'
+import { useDebounce } from '@hooks/useDebounce'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Slider } from '@/components/ui/slider'
+import { Badge } from '@/components/ui/badge'
+import { 
+  X, 
+  Filter, 
+  ChevronDown, 
+  ChevronUp, 
+  Loader2,
+  AlertCircle,
+  RefreshCw,
+  Search
+} from 'lucide-react'
+
+interface Category {
+  id: string
+  name: string
+  slug: string
+  productCount?: number
+}
+
+interface FilterState {
+  categories: string[]
+  minPrice: number
+  maxPrice: number
+  inStock: boolean
+  featured: boolean
+  page: number
+}
+
+interface ProductFiltersProps {
+  onFilterChange: (filters: FilterState) => void
+  isLoading?: boolean
+  hideCategories?: boolean
+  subcategoryId?: string // Jauns prop subcategory kontekstam
+}
+
+export default function ProductFilters({ 
+  onFilterChange, 
+  isLoading = false, 
+  hideCategories = false,
+  subcategoryId
+}: ProductFiltersProps) {
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  
+  const [categories, setCategories] = useState<Category[]>([])
+  const [categoriesLoading, setCategoriesLoading] = useState(false)
+  const [categoriesError, setCategoriesError] = useState<string | null>(null)
+  
+  // Dinamiskas cenas
+  const [dynamicPriceRange, setDynamicPriceRange] = useState({ min: 0, max: 1000 })
+  const [priceRangeLoading, setPriceRangeLoading] = useState(true)
+  
+  // Filtru state
+  const [priceRange, setPriceRange] = useState([0, 1000])
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([])
+  const [inStock, setInStock] = useState(false)
+  const [featured, setFeatured] = useState(false)
+  
+  // UI state  
+  const [showAllCategories, setShowAllCategories] = useState(false)
+  const [showPrice, setShowPrice] = useState(true)
+  const [showAvailability, setShowAvailability] = useState(true)
+  const [isUpdating, setIsUpdating] = useState(false)
+  
+  // Input kontrole
+  const [minPriceInput, setMinPriceInput] = useState('')
+  const [maxPriceInput, setMaxPriceInput] = useState('')
+  const minInputRef = useRef<HTMLInputElement>(null)
+  const maxInputRef = useRef<HTMLInputElement>(null)
+  const [isTypingPrice, setIsTypingPrice] = useState(false)
+
+  // Debounced tikai slider izmaiņām
+  const debouncedPriceRange = useDebounce(priceRange, 500)
+
+  const visibleCategories = useMemo(() => 
+    showAllCategories ? categories : categories.slice(0, 5),
+    [categories, showAllCategories]
+  )
+  
+  const hasMoreCategories = categories.length > 5
+  
+  const activeFiltersCount = useMemo(() => 
+    selectedCategories.length + 
+    (priceRange[0] > dynamicPriceRange.min ? 1 : 0) + 
+    (priceRange[1] < dynamicPriceRange.max ? 1 : 0) +
+    (inStock ? 1 : 0) + 
+    (featured ? 1 : 0),
+    [selectedCategories.length, priceRange, dynamicPriceRange, inStock, featured]
+  )
+
+  const hasActiveFilters = activeFiltersCount > 0
+
+const fetchPriceRange = useCallback(async () => {
+  setPriceRangeLoading(true)
+  try {
+    const params = new URLSearchParams()
+    params.set('priceRangeOnly', 'true')
+    
+    if (subcategoryId) {
+      params.set('subcategory', subcategoryId)
+    }
+    
+    const response = await fetch(`/api/products?${params}`)
+    const data = await response.json()
+    
+    setDynamicPriceRange({
+      min: Math.floor(data.minPrice || 0),
+      max: Math.ceil(data.maxPrice || 1000)
+    })
+    
+    // Atjauninām default vērtības
+    const urlMinPrice = parseInt(searchParams.get('minPrice') || '0')
+    const urlMaxPrice = parseInt(searchParams.get('maxPrice') || data.maxPrice?.toString() || '1000')
+    
+    setPriceRange([
+      Math.max(data.minPrice || 0, urlMinPrice),
+      Math.min(data.maxPrice || 1000, urlMaxPrice)
+    ])
+    
+  } catch (error) {
+    console.error('Error fetching price range:', error)
+  } finally {
+    setPriceRangeLoading(false)
+  }
+}, [subcategoryId, searchParams])
+
+  const updateURLWithoutRefresh = useCallback((filters: Record<string, string | string[]>) => {
+    const params = new URLSearchParams(searchParams.toString())
+    
+    const filterKeys = ['categories', 'minPrice', 'maxPrice', 'inStock', 'featured', 'page']
+    filterKeys.forEach(key => params.delete(key))
+
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value && (Array.isArray(value) ? value.length > 0 : value !== '0')) {
+        params.set(key, Array.isArray(value) ? value.join(',') : value.toString())
+      }
+    })
+
+    const currentSort = searchParams.get('sort')
+    if (currentSort) {
+      params.set('sort', currentSort)
+    }
+
+    const newUrl = `${pathname}?${params.toString()}`
+    window.history.replaceState(null, '', newUrl)
+    
+    onFilterChange({
+      categories: Array.isArray(filters.categories) ? filters.categories : 
+                 (filters.categories ? [filters.categories] : []),
+      minPrice: parseInt(filters.minPrice as string) || dynamicPriceRange.min,
+      maxPrice: parseInt(filters.maxPrice as string) || dynamicPriceRange.max,
+      inStock: filters.inStock === 'true',
+      featured: filters.featured === 'true',
+      page: 1
+    })
+  }, [searchParams, pathname, onFilterChange, dynamicPriceRange])
+
+  // Commit price TIKAI kad nenotiek typing
+  const commitPriceToURL = useCallback((range: number[]) => {
+    if (isTypingPrice) return // Nepievienojam ja lietotājs raksta
+    
+    const [minV, maxV] = range
+    
+    if (minV === dynamicPriceRange.min && maxV === dynamicPriceRange.max) {
+      return
+    }
+    
+    setIsUpdating(true)
+    
+    updateURLWithoutRefresh({
+      categories: selectedCategories,
+      minPrice: Math.max(dynamicPriceRange.min, Math.floor(minV)).toString(),
+      maxPrice: Math.min(dynamicPriceRange.max, Math.ceil(maxV)).toString(),
+      inStock: inStock.toString(),
+      featured: featured.toString()
+    })
+    
+    setTimeout(() => setIsUpdating(false), 200)
+  }, [selectedCategories, inStock, featured, updateURLWithoutRefresh, dynamicPriceRange, isTypingPrice])
+
+  // Input handleri ar manuālu commit
+  const handleMinPriceInputChange = (value: string) => {
+    setMinPriceInput(value)
+    setIsTypingPrice(true)
+  }
+
+  const handleMaxPriceInputChange = (value: string) => {
+    setMaxPriceInput(value)
+    setIsTypingPrice(true)
+  }
+
+  const handleMinPriceInputBlur = () => {
+    setIsTypingPrice(false)
+    const numValue = parseInt(minPriceInput) || dynamicPriceRange.min
+    const newMin = Math.max(dynamicPriceRange.min, Math.min(numValue, priceRange[1] - 1))
+    setPriceRange([newMin, priceRange[1]])
+    setMinPriceInput(newMin.toString())
+    
+    // Commit uzreiz
+    setTimeout(() => {
+      commitPriceToURL([newMin, priceRange[1]])
+    }, 100)
+  }
+
+  const handleMaxPriceInputBlur = () => {
+    setIsTypingPrice(false)
+    const numValue = parseInt(maxPriceInput) || dynamicPriceRange.max
+    const newMax = Math.min(dynamicPriceRange.max, Math.max(numValue, priceRange[0] + 1))
+    setPriceRange([priceRange[0], newMax])
+    setMaxPriceInput(newMax.toString())
+    
+    // Commit uzreiz
+    setTimeout(() => {
+      commitPriceToURL([priceRange[0], newMax])
+    }, 100)
+  }
+
+  const handleMinPriceKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      minInputRef.current?.blur()
+    }
+  }
+
+  const handleMaxPriceKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      maxInputRef.current?.blur()
+    }
+  }
+
+  // Fetch kategorijas
+  const fetchCategories = useCallback(async () => {
+    setCategoriesLoading(true)
+    setCategoriesError(null)
+    
+    try {
+      const response = await fetch('/api/navigation/categories')
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      }
+      
+      const data = await response.json()
+      setCategories(Array.isArray(data) ? data : [])
+    } catch (error) {
+      console.error('Error fetching categories:', error)
+      setCategoriesError(error instanceof Error ? error.message : 'Neizdevās ielādēt kategorijas')
+    } finally {
+      setCategoriesLoading(false)
+    }
+  }, [])
+
+  const loadFiltersFromURL = useCallback(() => {
+    const categories = searchParams.get('categories')?.split(',').filter(Boolean) || []
+    const minPrice = Math.max(dynamicPriceRange.min, parseInt(searchParams.get('minPrice') || dynamicPriceRange.min.toString()))
+    const maxPrice = Math.min(dynamicPriceRange.max, parseInt(searchParams.get('maxPrice') || dynamicPriceRange.max.toString()))
+    const stockFilter = searchParams.get('inStock') === 'true'
+    const featuredFilter = searchParams.get('featured') === 'true'
+
+    setSelectedCategories(categories)
+    setPriceRange([minPrice, maxPrice])
+    setMinPriceInput(minPrice.toString())
+    setMaxPriceInput(maxPrice.toString())
+    setInStock(stockFilter)
+    setFeatured(featuredFilter)
+  }, [searchParams, dynamicPriceRange])
+
+  // Effects
+  useEffect(() => {
+    fetchPriceRange()
+  }, [fetchPriceRange])
+
+  useEffect(() => {
+    if (!hideCategories) {
+      fetchCategories()
+    }
+  }, [fetchCategories, hideCategories])
+
+  useEffect(() => {
+    if (!priceRangeLoading) {
+      loadFiltersFromURL()
+    }
+  }, [loadFiltersFromURL, priceRangeLoading])
+
+  // Debounced price update TIKAI slider izmaiņām
+  useEffect(() => {
+    if (!isTypingPrice && (debouncedPriceRange[0] !== dynamicPriceRange.min || debouncedPriceRange[1] !== dynamicPriceRange.max)) {
+      commitPriceToURL(debouncedPriceRange)
+    }
+  }, [debouncedPriceRange, commitPriceToURL, dynamicPriceRange, isTypingPrice])
+
+  // Sync input values kad priceRange mainās no slider
+  useEffect(() => {
+    if (!isTypingPrice) {
+      setMinPriceInput(priceRange[0].toString())
+      setMaxPriceInput(priceRange[1].toString())
+    }
+  }, [priceRange, isTypingPrice])
+
+  // Pārējie handleri...
+  const handleCategoryChange = (categorySlug: string, checked: boolean) => {
+    const newCategories = checked 
+      ? [...selectedCategories, categorySlug]
+      : selectedCategories.filter(slug => slug !== categorySlug)
+    
+    setSelectedCategories(newCategories)
+    
+    updateURLWithoutRefresh({
+      categories: newCategories,
+      minPrice: priceRange[0].toString(),
+      maxPrice: priceRange[1].toString(),
+      inStock: inStock.toString(),
+      featured: featured.toString()
+    })
+  }
+
+  const handleStockChange = (checked: boolean) => {
+    setInStock(checked)
+    
+    updateURLWithoutRefresh({
+      categories: selectedCategories,
+      minPrice: priceRange[0].toString(),
+      maxPrice: priceRange[1].toString(),
+      inStock: checked.toString(),
+      featured: featured.toString()
+    })
+  }
+
+  const handleFeaturedChange = (checked: boolean) => {
+    setFeatured(checked)
+    
+    updateURLWithoutRefresh({
+      categories: selectedCategories,
+      minPrice: priceRange[0].toString(),
+      maxPrice: priceRange[1].toString(),
+      inStock: inStock.toString(),
+      featured: checked.toString()
+    })
+  }
+
+  const clearAllFilters = () => {
+    setSelectedCategories([])
+    setPriceRange([dynamicPriceRange.min, dynamicPriceRange.max])
+    setMinPriceInput(dynamicPriceRange.min.toString())
+    setMaxPriceInput(dynamicPriceRange.max.toString())
+    setInStock(false)
+    setFeatured(false)
+    setIsTypingPrice(false)
+
+    const newUrl = pathname
+    window.history.replaceState(null, '', newUrl)
+    
+    onFilterChange({
+      categories: [],
+      minPrice: dynamicPriceRange.min,
+      maxPrice: dynamicPriceRange.max,
+      inStock: false,
+      featured: false,
+      page: 1
+    })
+  }
+
+  return (
+    <div className={`bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden transition-all duration-200 ${
+      isUpdating || isLoading ? 'opacity-75 pointer-events-none' : 'opacity-100'
+    }`}>
+      
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200 p-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center">
+            <Filter className="w-6 h-6 mr-3 text-blue-600" />
+            <h3 className="text-lg font-bold text-gray-900">Filtri</h3>
+            {activeFiltersCount > 0 && (
+              <Badge variant="default" className="ml-3 bg-blue-600">
+                {activeFiltersCount}
+              </Badge>
+            )}
+            {(isUpdating || isLoading) && (
+              <Loader2 className="w-4 h-4 ml-3 animate-spin text-blue-600" />
+            )}
+          </div>
+          
+          {hasActiveFilters && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={clearAllFilters}
+              disabled={isUpdating || isLoading}
+              className="text-red-600 border-red-300 hover:bg-red-50 hover:border-red-400"
+            >
+              <X className="w-4 h-4 mr-1" />
+              Notīrīt
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <div className="p-6 space-y-8">
+        
+        {/* Kategorijas (ja nav slēptas) */}
+        {!hideCategories && (
+          <div>
+            {/* Kategoriju kods paliek tāds pats... */}
+          </div>
+        )}
+
+        {/* Cenas diapazons */}
+        <div>
+          <button
+            onClick={() => setShowPrice(!showPrice)}
+            className="flex items-center justify-between w-full mb-4 p-2 hover:bg-gray-50 rounded-lg transition-colors"
+          >
+            <Label className="text-lg font-semibold text-gray-900 cursor-pointer">
+              Cena
+              {(priceRange[0] > dynamicPriceRange.min || priceRange[1] < dynamicPriceRange.max) && (
+                <Badge variant="secondary" className="ml-2">
+                  €{priceRange[0]} - €{priceRange[1]}
+                </Badge>
+              )}
+            </Label>
+            <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${
+              showPrice ? 'rotate-180' : ''
+            }`} />
+          </button>
+          
+          {showPrice && (
+            <div className="space-y-4">
+              {priceRangeLoading ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="w-4 h-4 animate-spin text-gray-400 mr-2" />
+                  <span className="text-sm text-gray-500">Ielādē cenu diapazonu...</span>
+                </div>
+              ) : (
+                <>
+                  <div className="px-4">
+                    <Slider
+                      value={priceRange}
+                      onValueChange={setPriceRange}
+                      max={dynamicPriceRange.max}
+                      min={dynamicPriceRange.min}
+                      step={1}
+                      className="w-full"
+                      disabled={isUpdating || isLoading}
+                    />
+                    <div className="flex justify-between text-xs text-gray-500 mt-1">
+                      <span>€{dynamicPriceRange.min}</span>
+                      <span>€{dynamicPriceRange.max}</span>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-sm text-gray-600 mb-1 block">No (EUR)</Label>
+                      <Input
+                        ref={minInputRef}
+                        type="number"
+                        min={dynamicPriceRange.min}
+                        max={dynamicPriceRange.max}
+                        value={minPriceInput}
+                        onChange={(e) => handleMinPriceInputChange(e.target.value)}
+                        onBlur={handleMinPriceInputBlur}
+                        onKeyDown={handleMinPriceKeyDown}
+                        className="text-sm"
+                        disabled={isUpdating || isLoading}
+                        placeholder={dynamicPriceRange.min.toString()}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-sm text-gray-600 mb-1 block">Līdz (EUR)</Label>
+                      <Input
+                        ref={maxInputRef}
+                        type="number"
+                        min={dynamicPriceRange.min}
+                        max={dynamicPriceRange.max}
+                        value={maxPriceInput}
+                        onChange={(e) => handleMaxPriceInputChange(e.target.value)}
+                        onBlur={handleMaxPriceInputBlur}
+                        onKeyDown={handleMaxPriceKeyDown}
+                        className="text-sm"
+                        disabled={isUpdating || isLoading}
+                        placeholder={dynamicPriceRange.max.toString()}
+                      />
+                    </div>
+                  </div>
+                  
+                  {isTypingPrice && (
+                    <div className="text-xs text-blue-600 flex items-center justify-center">
+                      <Search className="w-3 h-3 mr-1" />
+                      Nospiediet Enter vai noklikšķiniet ārpus lauka
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Pieejamības filtri paliek tādi paši... */}
+        
+        {/* Active Filters Summary ar atjauninātām vērtībām */}
+        {hasActiveFilters && (
+          <div className="pt-4 border-t border-gray-200">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-medium text-gray-700">Aktīvie filtri:</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearAllFilters}
+                className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+              >
+                Notīrīt visus
+              </Button>
+            </div>
+            
+            <div className="flex flex-wrap gap-2">
+              {selectedCategories.map(slug => {
+                const category = categories.find(c => c.slug === slug)
+                return category ? (
+                  <Badge
+                    key={slug}
+                    variant="outline"
+                    className="text-xs cursor-pointer hover:bg-red-50 hover:border-red-300"
+                    onClick={() => handleCategoryChange(slug, false)}
+                  >
+                    {category.name}
+                    <X className="w-3 h-3 ml-1" />
+                  </Badge>
+                ) : null
+              })}
+              
+              {(priceRange[0] > dynamicPriceRange.min || priceRange[1] < dynamicPriceRange.max) && (
+                <Badge
+                  variant="outline"
+                  className="text-xs cursor-pointer hover:bg-red-50 hover:border-red-300"
+                  onClick={() => {
+                    setPriceRange([dynamicPriceRange.min, dynamicPriceRange.max])
+                    setMinPriceInput(dynamicPriceRange.min.toString())
+                    setMaxPriceInput(dynamicPriceRange.max.toString())
+                  }}
+                >
+                  €{priceRange[0]} - €{priceRange[1]}
+                  <X className="w-3 h-3 ml-1" />
+                </Badge>
+              )}
+              
+              {inStock && (
+                <Badge
+                  variant="outline"
+                  className="text-xs cursor-pointer hover:bg-red-50 hover:border-red-300"
+                  onClick={() => handleStockChange(false)}
+                >
+                  Pieejams
+                  <X className="w-3 h-3 ml-1" />
+                </Badge>
+              )}
+              
+              {featured && (
+                <Badge
+                  variant="outline"
+                  className="text-xs cursor-pointer hover:bg-red-50 hover:border-red-300"
+                  onClick={() => handleFeaturedChange(false)}
+                >
+                  Populārs
+                  <X className="w-3 h-3 ml-1" />
+                </Badge>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+ProductsRoute:
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@lib/supabase/server'
+import { ProductValidation } from '@/components/admin/products/ProductValidation'
+import type { SupabaseClient } from '@supabase/supabase-js'
+
+interface User {
+  id: string
+  email?: string
+  user_metadata?: Record<string, unknown>
+}
+
+const requestCounts = new Map<string, { count: number; resetTime: number }>()
+
+async function resolveGroupId(
+  supabase: SupabaseClient,
+  params: { groupId?: string | null; parentSlug?: string | null; parentSku?: string | null }
+): Promise<string | null> {
+  const { groupId, parentSlug, parentSku } = params
+
+  if (groupId && typeof groupId === 'string' && groupId.trim() !== '') {
+    const trimmedGroupId = groupId.trim()
+    
+    return trimmedGroupId
+  }
+
+  if (parentSlug) {
+    const { data } = await supabase
+      .from('products')
+      .select('id, group_id')
+      .eq('slug', parentSlug)
+      .single()
+    if (data) return data.group_id || data.id
+  }
+
+  if (parentSku) {
+    const { data } = await supabase
+      .from('products')
+      .select('id, group_id')
+      .eq('sku', parentSku)
+      .single()
+    if (data) return data.group_id || data.id
+  }
+
+  return null
+}
+
+function getRateLimitKey(request: NextRequest): string {
+  const forwarded = request.headers.get('x-forwarded-for')
+  const realIp = request.headers.get('x-real-ip')
+  return forwarded?.split(',')[0] || realIp || 'unknown'
+}
+
+function checkRateLimit(key: string, maxRequests = 100, windowMs = 60000): boolean {
+  const now = Date.now()
+  const record = requestCounts.get(key)
+  
+  if (!record || now > record.resetTime) {
+    requestCounts.set(key, { count: 1, resetTime: now + windowMs })
+    return true
+  }
+  
+  if (record.count >= maxRequests) {
+    return false
+  }
+  
+  record.count++
+  return true
+}
+
+function validateCSRF(request: NextRequest): boolean {
+  const requestedWith = request.headers.get('x-requested-with')
+  const origin = request.headers.get('origin')
+  
+  if (request.method === 'GET') {
+      return true
+  }
+
+  if (requestedWith !== 'XMLHttpRequest') {
+    console.error('CSRF validation failed: Missing X-Requested-With header')
+    return false
+  }
+  
+  if (process.env.NODE_ENV === 'production') {
+    const allowedOrigins = [process.env.NEXT_PUBLIC_SITE_URL].filter(Boolean)
+    if (!origin || !allowedOrigins.includes(origin)) {
+      console.error('CSRF validation failed: Invalid origin', { origin, allowedOrigins })
+      return false
+    }
+  }
+  
+  return true
+}
+
+async function checkAdminPermissions(supabase: SupabaseClient): Promise<{ user: User; isAdmin: boolean }> {
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  
+  if (authError || !user) {
+    console.error('Auth error:', authError)
+    throw new Error('Neautorizēts lietotājs')
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  if (profileError) {
+    console.error('Profile fetch error:', profileError)
+    throw new Error('Nav admin tiesību')
+  }
+
+  if (profile?.role !== 'admin') {
+    console.error('User role check failed:', { userId: user.id, role: profile?.role })
+    throw new Error('Nav admin tiesību')
+  }
+
+  return { user: user as User, isAdmin: true }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const rateLimitKey = getRateLimitKey(request)
+    if (!checkRateLimit(rateLimitKey, 200, 60000)) {
+      return NextResponse.json(
+        { error: 'Pārāk daudz pieprasījumu. Mēģiniet vēlāk.' }, 
+        { status: 429 }
+      )
+    }
+
+    const supabase = await createClient()
+    const { searchParams } = new URL(request.url)
+    
+    // Pārbaude vai tiek prasīts tikai cenu diapazons
+    const priceRangeOnly = searchParams.get('priceRangeOnly') === 'true'
+    
+    if (priceRangeOnly) {
+      // Atgriežam tikai min/max cenas
+      let priceQuery = supabase
+        .from('products')
+        .select('price')
+        .eq('status', 'active')
+
+      // Ja ir norādīta subcategory, filtrējam pēc tās
+      const subcategory = searchParams.get('subcategory')
+      if (subcategory && /^[a-zA-Z0-9-]+$/.test(subcategory)) {
+        priceQuery = priceQuery.eq('subcategory_id', subcategory)
+      }
+
+      // Ja ir norādīta category, filtrējam pēc tās
+      const category = searchParams.get('category')
+      if (category && /^[a-zA-Z0-9-]+$/.test(category)) {
+        priceQuery = priceQuery.eq('category_id', category)
+      }
+
+      // Ja ir kategoriju saraksts
+      const categoriesParam = searchParams.get('categories')
+      if (categoriesParam) {
+        const categorySlugs = categoriesParam.split(',').filter(slug => 
+          slug.trim() && /^[a-zA-Z0-9-]+$/.test(slug.trim())
+        )
+        
+        if (categorySlugs.length > 0) {
+          const { data: categoryData, error: categoryError } = await supabase
+            .from('navigation_categories')
+            .select('id')
+            .in('slug', categorySlugs)
+          
+          if (!categoryError && categoryData && categoryData.length > 0) {
+            const categoryIds = categoryData.map(cat => cat.id)
+            priceQuery = priceQuery.in('category_id', categoryIds)
+          }
+        }
+      }
+
+      const { data: priceData, error: priceError } = await priceQuery
+
+      if (priceError) {
+        console.error('Price range query error:', priceError)
+        return NextResponse.json({ 
+          minPrice: 0, 
+          maxPrice: 1000 
+        })
+      }
+
+      if (!priceData || priceData.length === 0) {
+        return NextResponse.json({ 
+          minPrice: 0, 
+          maxPrice: 1000 
+        })
+      }
+
+      const prices = priceData.map(p => p.price).filter(p => p != null && p >= 0)
+      
+      if (prices.length === 0) {
+        return NextResponse.json({ 
+          minPrice: 0, 
+          maxPrice: 1000 
+        })
+      }
+
+      const minPrice = Math.floor(Math.min(...prices))
+      const maxPrice = Math.ceil(Math.max(...prices))
+
+      return NextResponse.json({ 
+        minPrice: Math.max(0, minPrice), 
+        maxPrice: Math.max(minPrice + 1, maxPrice)
+      })
+    }
+    
+    // Turpinās esošā produktu iegūšanas loģika...
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1'))
+    const limit = Math.min(50, Math.max(1, parseInt(searchParams.get('limit') || '12')))
+    const admin = searchParams.get('admin') === 'true'
+
+    if (admin) {
+      await checkAdminPermissions(supabase)
+    }
+
+    let query = supabase
+      .from('products')
+      .select(`
+        *,
+        navigation_categories!category_id(id, name, slug),
+        navigation_subcategories!subcategory_id(id, name, slug)
+      `, { count: 'exact' })
+
+    if (!admin) {
+      query = query.eq('status', 'active')
+    }
+
+    const search = searchParams.get('search')?.trim().substring(0, 100)
+    if (search) {
+      const sanitizedSearch = search.replace(/[%_\\]/g, '\\$&')
+      query = query.or(`name.ilike.%${sanitizedSearch}%, description.ilike.%${sanitizedSearch}%`)
+    }
+
+    const category = searchParams.get('category')
+    if (category && /^[a-zA-Z0-9-]+$/.test(category)) {
+      query = query.eq('category_id', category)
+    }
+
+    // Filtrēšana pēc subcategory
+    const subcategory = searchParams.get('subcategory')
+    if (subcategory && /^[a-zA-Z0-9-]+$/.test(subcategory)) {
+      query = query.eq('subcategory_id', subcategory)
+    }
+
+    const categoriesParam = searchParams.get('categories')
+    if (categoriesParam) {
+      const categorySlugs = categoriesParam.split(',').filter(slug => 
+        slug.trim() && /^[a-zA-Z0-9-]+$/.test(slug.trim())
+      )
+      
+      if (categorySlugs.length > 0) {
+        const { data: categoryData, error: categoryError } = await supabase
+          .from('navigation_categories')
+          .select('id')
+          .in('slug', categorySlugs)
+        
+        if (!categoryError && categoryData && categoryData.length > 0) {
+          const categoryIds = categoryData.map(cat => cat.id)
+          query = query.in('category_id', categoryIds)
+        }
+      }
+    }
+
+    const groupIdParam = searchParams.get('groupId')
+    if (groupIdParam) query = query.eq('group_id', groupIdParam)
+
+    const featured = searchParams.get('featured')
+    if (featured === 'true') {
+      query = query.eq('featured', true)
+    }
+
+    const inStock = searchParams.get('inStock')
+    if (inStock === 'true') {
+      query = query.gt('stock_quantity', 0)
+    }
+
+    const minPrice = parseInt(searchParams.get('minPrice') || '0')
+    const maxPrice = parseInt(searchParams.get('maxPrice') || '999999')
+    if (minPrice >= 0 && maxPrice > minPrice) {
+      query = query.gte('price', minPrice).lte('price', maxPrice)
+    }
+
+    const allowedSorts = ['name', 'price_asc', 'price_desc', 'created_at', 'featured']
+    const sort = searchParams.get('sort') || 'name'
+    
+    if (allowedSorts.includes(sort)) {
+      switch(sort) {
+        case 'price_asc':
+          query = query.order('price', { ascending: true })
+          break
+        case 'price_desc':
+          query = query.order('price', { ascending: false })
+          break
+        case 'created_at':
+          query = query.order('created_at', { ascending: false })
+          break
+        case 'featured':
+          query = query.order('featured', { ascending: false }).order('name', { ascending: true })
+          break
+        default:
+          query = query.order('name', { ascending: true })
+      }
+    }
+
+    const from = (page - 1) * limit
+    const to = from + limit - 1
+    
+    query = query.range(from, to)
+
+    const { data, error, count } = await query
+
+    if (error) {
+      console.error('Database query error:', error)
+      return NextResponse.json({ error: 'Datu bāzes kļūda' }, { status: 500 })
+    }
+
+    const headers: Record<string, string> = {
+      'X-Content-Type-Options': 'nosniff',
+      'X-Frame-Options': 'DENY',
+      'X-Generated-At': new Date().toISOString()
+    }
+
+    return NextResponse.json({
+      products: data || [],
+      pagination: {
+        page,
+        limit,
+        total: count || 0,
+        totalPages: Math.ceil((count || 0) / limit)
+      }
+    }, { headers })
+
+  } catch (error) {
+    console.error('Products GET error:', error)
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Servera kļūda' }, 
+      { status: error instanceof Error && error.message.includes('tiesību') ? 403 : 500 }
+    )
+  }
+}
+
+export async function POST(req: Request) {
+  const request = req as NextRequest
+  
+  try {
+    console.log('=== POST REQUEST DEBUG INFO ===')
+    console.log('Method:', request.method)
+    console.log('Headers (partial):', {
+      'x-requested-with': request.headers.get('x-requested-with'),
+      'origin': request.headers.get('origin'),
+      'content-type': request.headers.get('content-type')
+    })
+    
+    const rateLimitKey = getRateLimitKey(request)
+    if (!checkRateLimit(rateLimitKey, 20, 60000)) {
+      return NextResponse.json(
+        { error: 'Pārāk daudz pieprasījumu. Mēģiniet vēlāk.' }, 
+        { status: 429 }
+      )
+    }
+
+    const csrfValid = validateCSRF(request)
+    console.log('POST CSRF validation result:', csrfValid)
+    
+    if (!csrfValid) {
+      console.error('CSRF validation failed for POST request')
+      return NextResponse.json({ 
+        error: 'Neatļauts pieprasījums - CSRF validācija neizdevās',
+        debug: {
+          hasXRequestedWith: request.headers.get('x-requested-with') === 'XMLHttpRequest',
+          origin: request.headers.get('origin'),
+          environment: process.env.NODE_ENV
+        }
+      }, { status: 403 })
+    }
+
+    const supabase = await createClient()
+    const { user } = await checkAdminPermissions(supabase)
+
+    const body = await req.json()
+
+    const { group_id, parentSlug, ...rest } = body || {}
+    const resolvedGroupId = await resolveGroupId(supabase, { 
+      groupId: group_id,
+      parentSlug, 
+      parentSku: null 
+    })
+
+    const validationErrors = ProductValidation.validateProduct(rest)
+    if (validationErrors.length > 0) {
+      return NextResponse.json({ 
+        error: 'Validācijas kļūdas', 
+        validationErrors 
+      }, { status: 400 })
+    }
+
+    if (resolvedGroupId) {
+      const { data: groupProduct } = await supabase
+        .from('products')
+        .select('id, status')
+        .eq('group_id', resolvedGroupId)
+        .limit(1)
+        .maybeSingle()
+      const admin = true
+      if (!admin && (!groupProduct || groupProduct.status !== 'active')) {
+        return NextResponse.json({ error: 'Nederīgs groupId vai produkts nav aktīvs' }, { status: 400 })
+      }
+    }
+
+    const { data: existingProduct } = await supabase
+      .from('products')
+      .select('id')
+      .eq('slug', rest.slug)
+      .single()
+
+    if (existingProduct) {
+      return NextResponse.json({ 
+        error: 'Produkts ar šādu slug jau eksistē' 
+      }, { status: 400 })
+    }
+
+    // Nodrošinām pareizu subcategory apstrādi
+    const cleanRest = {
+      ...rest,
+      subcategory_id: rest.subcategory_id === '' || rest.subcategory_id === undefined ? null : rest.subcategory_id,
+      category_id: rest.category_id === '' || rest.category_id === undefined ? null : rest.category_id
+    }
+
+    const insertPayload = {
+      ...cleanRest,
+      group_id: resolvedGroupId || null,
+      created_by: user.id,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }
+
+    console.log('POST - Insert payload:', {
+      category_id: insertPayload.category_id,
+      subcategory_id: insertPayload.subcategory_id,
+      group_id: insertPayload.group_id,
+      name: insertPayload.name
+    })
+
+    const { data: createdRows, error } = await supabase
+      .from('products')
+      .insert([insertPayload])
+      .select('id, group_id')
+
+    if (error) {
+      console.error('Product creation error:', error)
+      return NextResponse.json({ error: 'Neizdevās izveidot produktu' }, { status: 400 })
+    }
+
+    const created = createdRows?.[0]
+    if (created && !created.group_id) {
+      const { error: gErr } = await supabase
+        .from('products')
+        .update({ group_id: created.id, updated_at: new Date().toISOString() })
+        .eq('id', created.id)
+
+      if (gErr) {
+        console.error('Group assignment error:', gErr)
+      }
+    }
+
+    const { data: fullProduct } = await supabase
+      .from('products')
+      .select(`
+        *,
+        navigation_categories:category_id(id, name, slug),
+        navigation_subcategories:subcategory_id(id, name, slug)
+      `)
+      .eq('id', created.id)
+      .single()
+
+    return NextResponse.json(fullProduct, { status: 201 })
+
+  } catch (error) {
+    console.error('Products POST error:', error)
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Servera kļūda' }, 
+      { status: error instanceof Error && error.message.includes('tiesību') ? 403 : 500 }
+    )
+  }
+}
+
+export async function PUT(req: Request) {
+  const request = req as NextRequest
+  
+  try {
+    console.log('=== PUT REQUEST DEBUG INFO ===')
+    console.log('Method:', request.method)
+    console.log('URL:', request.url)
+    console.log('Headers:', Object.fromEntries(request.headers.entries()))
+    
+    const rateLimitKey = getRateLimitKey(request)
+    console.log('Rate limit key:', rateLimitKey)
+    
+    if (!checkRateLimit(rateLimitKey, 30, 60000)) {
+      console.log('Rate limit exceeded for key:', rateLimitKey)
+      return NextResponse.json(
+        { error: 'Pārāk daudz pieprasījumu. Mēģiniet vēlāk.' }, 
+        { status: 429 }
+      )
+    }
+
+    console.log('Rate limit check passed')
+    
+    const csrfValid = validateCSRF(request)
+    console.log('CSRF validation result:', csrfValid)
+    
+    if (!csrfValid) {
+      console.error('CSRF validation failed for PUT request')
+      return NextResponse.json({ 
+        error: 'Neatļauts pieprasījums - CSRF validācija neizdevās',
+        debug: {
+          hasXRequestedWith: request.headers.get('x-requested-with') === 'XMLHttpRequest',
+          origin: request.headers.get('origin'),
+          environment: process.env.NODE_ENV,
+          allowedOrigin: process.env.NEXT_PUBLIC_SITE_URL
+        }
+      }, { status: 403 })
+    }
+
+    console.log('CSRF validation passed')
+
+    const supabase = await createClient()
+    console.log('Supabase client created')
+    
+    let adminCheckResult
+    try {
+      adminCheckResult = await checkAdminPermissions(supabase)
+      console.log('Admin permissions check passed:', adminCheckResult)
+    } catch (adminError) {
+      console.error('Admin permissions check failed:', adminError)
+      return NextResponse.json({ 
+        error: adminError instanceof Error ? adminError.message : 'Nav admin tiesību',
+        debug: {
+          step: 'admin_check_failed',
+          errorMessage: adminError instanceof Error ? adminError.message : 'Unknown admin error'
+        }
+      }, { status: 403 })
+    }
+
+    let body
+    try {
+      body = await req.json()
+      console.log('Request body parsed:', Object.keys(body))
+    } catch (parseError) {
+      console.error('JSON parse error:', parseError)
+      return NextResponse.json({ 
+        error: 'Nederīgs JSON formāts',
+        debug: { step: 'json_parse_failed' }
+      }, { status: 400 })
+    }
+
+    const { id } = body
+
+    if (!id || typeof id !== 'string') {
+      console.error('Invalid or missing ID:', id)
+      return NextResponse.json({ 
+        error: 'ID ir obligāts un jābūt string formātā',
+        debug: { providedId: id, idType: typeof id }
+      }, { status: 400 })
+    }
+
+    console.log('Updating product with ID:', id)
+
+    const excludedFields = ['id', 'navigation_categories', 'navigation_subcategories', 'created_at', 'created_by']
+    const updateData = Object.fromEntries(
+      Object.entries(body).filter(([key]) => !excludedFields.includes(key))
+    )
+
+    console.log('Update data fields:', Object.keys(updateData))
+
+    // Pārbaudām, vai produkts eksistē
+    const { data: existingProduct, error: fetchError } = await supabase
+      .from('products')
+      .select('id, slug')
+      .eq('id', id)
+      .single()
+
+    if (fetchError) {
+      console.error('Error fetching existing product:', fetchError)
+      return NextResponse.json({ 
+        error: 'Kļūda meklējot produktu',
+        debug: { step: 'fetch_existing_product', dbError: fetchError }
+      }, { status: 500 })
+    }
+
+    if (!existingProduct) {
+      console.error('Product not found with ID:', id)
+      return NextResponse.json({ 
+        error: 'Produkts nav atrasts',
+        debug: { step: 'product_not_found', searchedId: id }
+      }, { status: 404 })
+    }
+
+    console.log('Existing product found:', existingProduct)
+
+    // Pārbaudām slug unikalitāti
+    if (updateData.slug && updateData.slug !== existingProduct.slug) {
+      const { data: slugExists } = await supabase
+        .from('products')
+        .select('id')
+        .eq('slug', updateData.slug)
+        .neq('id', id)
+        .single()
+
+      if (slugExists) {
+        console.error('Slug already exists:', updateData.slug)
+        return NextResponse.json({ 
+          error: 'Produkts ar šādu slug jau eksistē',
+          debug: { step: 'slug_exists', slug: updateData.slug }
+        }, { status: 400 })
+      }
+    }
+
+    // Pārbaudām group_id
+    if (updateData.group_id) {
+      const { data: groupExists } = await supabase
+        .from('products')
+        .select('id')
+        .eq('group_id', updateData.group_id)
+        .limit(1)
+        .single()
+        
+      if (!groupExists) {
+        console.error('Group does not exist:', updateData.group_id)
+        return NextResponse.json({ 
+          error: 'Norādītā grupa neeksistē',
+          debug: { step: 'group_not_exists', groupId: updateData.group_id }
+        }, { status: 400 })
+      }
+    }
+
+    // Nodrošinām, ka subcategory_id tiek pareizi apstrādāts
+    const finalUpdateData = {
+      ...updateData,
+      // Ja subcategory_id ir tukša virkne vai null, iestatām kā null
+      subcategory_id: updateData.subcategory_id === '' || updateData.subcategory_id === undefined ? null : updateData.subcategory_id,
+      category_id: updateData.category_id === '' || updateData.category_id === undefined ? null : updateData.category_id
+    }
+
+    const updatePayload = {
+      ...finalUpdateData,
+      updated_at: new Date().toISOString()
+    }
+
+    console.log('Final update data with subcategory handling:', finalUpdateData)
+
+    console.log('Final update payload:', updatePayload)
+
+    const { data, error } = await supabase
+      .from('products')
+      .update(updatePayload)
+      .eq('id', id)
+      .select('*')
+
+    if (error) {
+      console.error('Product update error:', error)
+      return NextResponse.json({ 
+        error: 'Neizdevās atjaunot produktu',
+        debug: { step: 'database_update_failed', dbError: error }
+      }, { status: 400 })
+    }
+
+    console.log('Product updated successfully:', data?.[0]?.id)
+    
+    return NextResponse.json(data?.[0], {
+      headers: {
+        'X-Debug-Info': 'Product updated successfully'
+      }
+    })
+
+  } catch (error) {
+    console.error('Products PUT error:', error)
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace')
+    
+    const errorMessage = error instanceof Error ? error.message : 'Servera kļūda'
+    const isAuthError = errorMessage.includes('tiesību') || errorMessage.includes('autor')
+    
+    return NextResponse.json({
+      error: errorMessage,
+      debug: {
+        step: 'general_error',
+        errorType: error instanceof Error ? error.constructor.name : typeof error,
+        timestamp: new Date().toISOString()
+      }
+    }, { 
+      status: isAuthError ? 403 : 500,
+      headers: {
+        'X-Debug-Error': 'Check server console for details'
+      }
+    })
+  }
+}
+
+export async function DELETE(req: Request) {
+  const request = req as NextRequest
+  
+  try {
+    console.log('=== DELETE REQUEST DEBUG INFO ===')
+    console.log('Method:', request.method)
+    
+    const rateLimitKey = getRateLimitKey(request)
+    if (!checkRateLimit(rateLimitKey, 10, 60000)) {
+      return NextResponse.json(
+        { error: 'Pārāk daudz pieprasījumu. Mēģiniet vēlāk.' }, 
+        { status: 429 }
+      )
+    }
+
+    const csrfValid = validateCSRF(request)
+    console.log('DELETE CSRF validation result:', csrfValid)
+    
+    if (!csrfValid) {
+      console.error('CSRF validation failed for DELETE request')
+      return NextResponse.json({ 
+        error: 'Neatļauts pieprasījums - CSRF validācija neizdevās',
+        debug: {
+          hasXRequestedWith: request.headers.get('x-requested-with') === 'XMLHttpRequest',
+          origin: request.headers.get('origin'),
+          environment: process.env.NODE_ENV
+        }
+      }, { status: 403 })
+    }
+
+    const supabase = await createClient()
+    await checkAdminPermissions(supabase)
+
+    const { id } = await req.json()
+
+    if (!id || typeof id !== 'string') {
+      return NextResponse.json({ error: 'ID ir obligāts' }, { status: 400 })
+    }
+
+    const { data: existingProduct } = await supabase
+      .from('products')
+      .select('id, name')
+      .eq('id', id)
+      .single()
+
+    if (!existingProduct) {
+      return NextResponse.json({ error: 'Produkts nav atrasts' }, { status: 404 })
+    }
+
+    const { error } = await supabase
+      .from('products')
+      .delete()
+      .eq('id', id)
+
+    if (error) {
+      console.error('Product deletion error:', error)
+      return NextResponse.json({ error: 'Neizdevās dzēst produktu' }, { status: 400 })
+    }
+
+    return NextResponse.json({ 
+      success: true, 
+      message: `Produkts "${existingProduct.name}" dzēsts veiksmīgi` 
+    })
+
+  } catch (error) {
+    console.error('Products DELETE error:', error)
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Servera kļūda' }, 
+      { status: error instanceof Error && error.message.includes('tiesību') ? 403 : 500 }
+    )
+  }
+}
+
+CategorySlugPage:
+// src/app/[locale]/[categorySlug]/[subcategorySlug]/page.tsx
+'use client'
+
+import { useState, useEffect, useCallback } from 'react'
+import { useParams, notFound, useSearchParams } from 'next/navigation'
+import Header from '@/components/Header'
+import MainNavigation from '@/components/MainNavigation'
+import ProductCard from '@/components/products/ProductCard'
+import ProductFilters from '@/components/products/ProductFilters'
+import { Loading } from '@/components/ui/Loading'
+import { Button } from '@/components/ui/button'
+import { ChevronRight, Grid, List, Filter, X, Loader2 } from 'lucide-react'
+import Link from 'next/link'
+
+interface Category {
+  id: string
+  name: string
+  slug: string
+}
+
+interface Subcategory {
+  id: string
+  name: string
+  slug: string
+  category_id: string
+  meta_title?: string
+  meta_description?: string
+}
+
+interface Product {
+  id: string
+  name: string
+  slug: string
+  price: number
+  images: string[]
+  short_description: string
+  sale_price?: number
+  stock_quantity?: number
+  featured?: boolean
+  sku?: string
+  navigation_categories?: {
+    name: string
+    slug: string
+  }
+}
+
+interface FilterState {
+  categories: string[]
+  minPrice: number
+  maxPrice: number
+  inStock: boolean
+  featured: boolean
+  page: number
+}
+
+export default function SubcategoryPage() {
+  const params = useParams()
+  const searchParams = useSearchParams()
+  const [category, setCategory] = useState<Category | null>(null)
+  const [subcategory, setSubcategory] = useState<Subcategory | null>(null)
+  const [products, setProducts] = useState<Product[]>([])
+  const [loading, setLoading] = useState(true)
+  const [filtering, setFiltering] = useState(false)
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const [showFilters, setShowFilters] = useState(true)
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 12,
+    total: 0,
+    totalPages: 0
+  })
+  const [sortBy, setSortBy] = useState('name')
+
+  // Fetch subcategory products with filters
+  const fetchProducts = useCallback(async (filters?: FilterState, sort?: string) => {
+    if (!subcategory) return
+    
+    const isFiltering = !!filters
+    
+    if (isFiltering) {
+      setFiltering(true)
+    }
+
+    try {
+      const params = new URLSearchParams()
+      
+      // Always include subcategory
+      params.set('subcategory', subcategory.id)
+      params.set('status', 'active')
+      
+      if (filters) {
+        if (filters.minPrice > 0) {
+          params.set('minPrice', filters.minPrice.toString())
+        }
+        if (filters.maxPrice < 1000) {
+          params.set('maxPrice', filters.maxPrice.toString())
+        }
+        if (filters.inStock) {
+          params.set('inStock', 'true')
+        }
+        if (filters.featured) {
+          params.set('featured', 'true')
+        }
+        if (filters.page > 1) {
+          params.set('page', filters.page.toString())
+        }
+        params.set('limit', '12')
+        if (sort && sort !== 'name') {
+          params.set('sort', sort)
+        }
+      } else {
+        const page = searchParams.get('page') || '1'
+        const minPrice = searchParams.get('minPrice')
+        const maxPrice = searchParams.get('maxPrice')
+        const inStock = searchParams.get('inStock')
+        const featured = searchParams.get('featured')
+        const urlSort = searchParams.get('sort') || 'name'
+        
+        params.set('page', page)
+        params.set('limit', '12')
+        if (minPrice) params.set('minPrice', minPrice)
+        if (maxPrice) params.set('maxPrice', maxPrice)
+        if (inStock) params.set('inStock', inStock)
+        if (featured) params.set('featured', featured)
+        params.set('sort', urlSort)
+      }
+
+      const response = await fetch(`/api/products?${params}`)
+      const data = await response.json()
+
+      if (response.ok) {
+        if (isFiltering) {
+          await new Promise(resolve => setTimeout(resolve, 300))
+        }
+        
+        setProducts(data.products || [])
+        setPagination(data.pagination || {
+          page: 1,
+          limit: 12,
+          total: data.products?.length || 0,
+          totalPages: 1
+        })
+      }
+    } catch (error) {
+      console.error('Error fetching products:', error)
+    } finally {
+      setFiltering(false)
+    }
+  }, [subcategory, searchParams])
+
+  const handleFilterChange = useCallback((filters: FilterState) => {
+    fetchProducts(filters, sortBy)
+  }, [fetchProducts, sortBy])
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Ielādējam kategorijas
+        const catsRes = await fetch('/api/navigation/categories')
+        const categories = await catsRes.json()
+        const foundCategory = categories.find((cat: Category) => cat.slug === params.categorySlug)
+        
+        if (!foundCategory) {
+          notFound()
+        }
+        setCategory(foundCategory)
+
+        // Ielādējam subkategorijas
+        const subsRes = await fetch('/api/navigation/subcategories')
+        const subcategories = await subsRes.json()
+        const foundSub = subcategories.find((sub: Subcategory) => 
+          sub.slug === params.subcategorySlug && sub.category_id === foundCategory.id
+        )
+        
+        if (!foundSub) {
+          notFound()
+        }
+        setSubcategory(foundSub)
+        
+      } catch (error) {
+        console.error('Error:', error)
+        notFound()
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    if (params.categorySlug && params.subcategorySlug) {
+      fetchData()
+    }
+  }, [params.categorySlug, params.subcategorySlug])
+
+  // Fetch products when subcategory is loaded
+  useEffect(() => {
+    if (subcategory && !loading) {
+      fetchProducts()
+    }
+  }, [subcategory, loading, fetchProducts])
+
+  useEffect(() => {
+    const urlSort = searchParams.get('sort') || 'name'
+    setSortBy(urlSort)
+  }, [searchParams])
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Header />
+        <MainNavigation />
+        <Loading variant="spinner" text="Ielādē..." className="py-20" />
+      </div>
+    )
+  }
+
+  if (!category || !subcategory) {
+    notFound()
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <Header />
+      <MainNavigation />
+      
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        <nav className="flex items-center space-x-2 text-sm text-gray-500 mb-6">
+          <Link href="/" className="hover:text-gray-700">Sākums</Link>
+          <ChevronRight className="w-4 h-4" />
+          <Link href={`/${params.locale}/kategorijas/${category.slug}`} className="hover:text-gray-700">{category.name}</Link>
+          <ChevronRight className="w-4 h-4" />
+          <span className="text-gray-900 font-medium">{subcategory.name}</span>
+        </nav>
+
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            {subcategory.name}
+          </h1>
+          <p className="text-gray-600 mb-6">
+            {category.name} → {subcategory.name}
+          </p>
+          
+          {/* Filters & Controls */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <Button
+                variant={showFilters ? "default" : "outline"}
+                size="sm"
+                onClick={() => setShowFilters(!showFilters)}
+                className={`transition-all duration-150 ease-out ${showFilters ? "bg-blue-600 hover:bg-blue-700" : ""}`}
+              >
+                <Filter className="w-4 h-4 mr-2" />
+                {showFilters ? 'Slēpt filtrus' : 'Rādīt filtrus'}
+                {showFilters && <X className="w-4 h-4 ml-2" />}
+              </Button>
+              
+              <select 
+                value={sortBy}
+                onChange={(e) => {
+                  const newSort = e.target.value
+                  setSortBy(newSort)
+                  
+                  const currentFilters = {
+                    categories: [], // Subcategory page doesn't filter by categories
+                    minPrice: parseInt(searchParams.get('minPrice') || '0'),
+                    maxPrice: parseInt(searchParams.get('maxPrice') || '1000'),
+                    inStock: searchParams.get('inStock') === 'true',
+                    featured: searchParams.get('featured') === 'true',
+                    page: 1
+                  }
+                  
+                  fetchProducts(currentFilters, newSort)
+                }}
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+              >
+                <option value="name">Pēc nosaukuma</option>
+                <option value="price_asc">Pēc cenas (lētākie)</option>
+                <option value="price_desc">Pēc cenas (dārgākie)</option>
+                <option value="created_at">Pēc datuma</option>
+                <option value="featured">Populārākie</option>
+              </select>
+
+              {/* Filtering indicator */}
+              {filtering && (
+                <div className="flex items-center text-sm text-blue-600">
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Atjaunina...
+                </div>
+              )}
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <Button
+                variant={viewMode === 'grid' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('grid')}
+                className="transition-all duration-200"
+              >
+                <Grid className="w-4 h-4" />
+              </Button>
+              <Button
+                variant={viewMode === 'list' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('list')}
+                className="transition-all duration-200"
+              >
+                <List className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex gap-8">
+          {/* Filters Sidebar */}
+          <div className={`transition-all duration-200 ease-out ${showFilters ? 'w-80 opacity-100' : 'w-0 opacity-0 overflow-hidden'}`}>
+            <div className={`w-80 transition-transform duration-200 ease-out ${showFilters ? 'translate-x-0' : '-translate-x-full'}`}>
+              <ProductFilters 
+                onFilterChange={handleFilterChange} 
+                isLoading={filtering}
+                hideCategories={true}
+                subcategoryId={subcategory.id}
+              />
+            </div>
+          </div>
+
+          {/* Products Grid */}
+          <div className={`flex-1 min-w-0 transition-all duration-200 ease-out`}>
+            <div className={`transition-opacity duration-150 ${filtering ? 'opacity-60' : 'opacity-100'}`}>
+              {products.length > 0 ? (
+                <>
+                  <div className={`
+                    transition-all duration-200 ease-out
+                    ${viewMode === 'grid' 
+                      ? showFilters 
+                        ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'
+                        : 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6'
+                      : 'space-y-4'
+                    }
+                  `}>
+                    {products.map((product, index) => (
+                      <div 
+                        key={product.id}
+                        className="animate-fadeInUp"
+                        style={{ animationDelay: `${index * 50}ms` }}
+                      >
+                        <ProductCard
+                          product={product}
+                          viewMode={viewMode}
+                          imageStyle="contain"
+                        />
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Pagination */}
+                  {pagination.totalPages > 1 && (
+                    <div className="mt-12 flex justify-center">
+                      <div className="flex items-center space-x-2">
+                        {Array.from({ length: Math.min(pagination.totalPages, 10) }, (_, i) => i + 1).map((page) => (
+                          <Button
+                            key={page}
+                            variant={page === pagination.page ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => {
+                              const currentFilters = {
+                                categories: [],
+                                minPrice: parseInt(searchParams.get('minPrice') || '0'),
+                                maxPrice: parseInt(searchParams.get('maxPrice') || '1000'),
+                                inStock: searchParams.get('inStock') === 'true',
+                                featured: searchParams.get('featured') === 'true',
+                                page
+                              }
+                              handleFilterChange(currentFilters)
+                            }}
+                            className="transition-all duration-200"
+                            disabled={filtering}
+                          >
+                            {page}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="text-center py-12">
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    Nav atrasti produkti
+                  </h3>
+                  <p className="text-gray-600">
+                    Šajā subkategorijā pagaidām nav produktu vai tie neatbilst filtru kritērijiem
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
