@@ -156,9 +156,14 @@ export default function CategoryModal({
           setAlert('Lūdzu aizpildiet visus obligātos laukus', 'error')
           return
         }
+
+        // Saglabājam kategoriju
         const res = await fetch('/api/navigation/categories', {
           method: isEdit ? 'PUT' : 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest' // Pievienojam CSRF header
+          },
           body: JSON.stringify(category),
         })
 
@@ -176,22 +181,43 @@ export default function CategoryModal({
           setAlert('Kategorijas ID nav atrasts', 'error')
           return
         }
+
+        // Saglabājam subkategorijas
         for (const sub of subcategories) {
-          const method = sub.id ? 'PUT' : 'POST'
-          await fetch('/api/navigation/subcategories', {
-            method,
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              ...sub,
-              category_id: catId,
-            }),
-          })
+          try {
+            const method = sub.id ? 'PUT' : 'POST'
+            const subResponse = await fetch('/api/navigation/subcategories', {
+              method,
+              headers: { 
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest' // Pievienojam CSRF header
+              },
+              body: JSON.stringify({
+                ...sub,
+                category_id: catId,
+              }),
+            })
+
+            const subData = await subResponse.json()
+            
+            if (!subResponse.ok) {
+              console.error('Subcategory save error:', subData)
+              setAlert(`Neizdevās saglabāt apakškategoriju "${sub.name}": ${subData.error}`, 'error')
+              // Turpinām ar citām subkategorijām
+            } else {
+              console.log('Subcategory saved:', subData)
+            }
+          } catch (subError) {
+            console.error('Subcategory save exception:', subError)
+            setAlert(`Kļūda saglabājot apakškategoriju "${sub.name}"`, 'error')
+          }
         }
 
         setAlert('Saglabāts veiksmīgi', 'success')
         onSave()
         onClose()
-      } catch {
+      } catch (error) {
+        console.error('Submit error:', error)
         setAlert('Neizdevās saglabāt', 'error')
       }
     })
