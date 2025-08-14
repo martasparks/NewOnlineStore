@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef, useLayoutEffect } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import Image from 'next/image'
 import { 
  ChevronLeft, 
@@ -43,13 +43,12 @@ export default function ProductGallery({ images, alt, priority = false }: Produc
  const hasImages = images && images.length > 0
  const minSwipeDistance = 50
 
- // Helper function to hide/show sticky element
- const toggleStickyVisibility = (hide: boolean) => {
-   const productInfoSticky = document.querySelector('.xl\\:col-span-5 .sticky')
-   if (productInfoSticky) {
-     (productInfoSticky as HTMLElement).style.visibility = hide ? 'hidden' : 'visible'
-   }
-   document.body.style.overflow = hide ? 'hidden' : 'auto'
+ // Helper function to dispatch modal state change
+ const dispatchModalChange = (isOpen: boolean) => {
+   const event = new CustomEvent('gallery-modal-change', { 
+     detail: { isOpen } 
+   })
+   window.dispatchEvent(event)
  }
 
  const nextImage = useCallback(() => {
@@ -119,13 +118,9 @@ export default function ProductGallery({ images, alt, priority = false }: Produc
    }
  }
 
- // Use useLayoutEffect for immediate DOM updates
- useLayoutEffect(() => {
-   toggleStickyVisibility(isZoomed || isFullscreen)
-
-   return () => {
-     toggleStickyVisibility(false)
-   }
+ // Notify about modal state changes
+ useEffect(() => {
+   dispatchModalChange(isZoomed || isFullscreen)
  }, [isZoomed, isFullscreen])
 
  useEffect(() => {
@@ -217,12 +212,10 @@ export default function ProductGallery({ images, alt, priority = false }: Produc
  }, [hasImages])
 
  const handleZoomOpen = () => {
-   toggleStickyVisibility(true)
    setIsZoomed(true)
  }
 
  const handleFullscreenOpen = () => {
-   toggleStickyVisibility(true)
    setIsFullscreen(true)
  }
 
