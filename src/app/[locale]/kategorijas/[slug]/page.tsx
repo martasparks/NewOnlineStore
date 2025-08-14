@@ -32,12 +32,13 @@ interface Product {
 export default function CategoryPage() {
   const params = useParams()
   const [category, setCategory] = useState<Category | null>(null)
+  const [subcategories, setSubcategories] = useState<any[]>([]) // Pievienots
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [sortBy, setSortBy] = useState('name')
 
-  useEffect(() => {
+useEffect(() => {
     const fetchCategoryData = async () => {
       try {
         const categoryRes = await fetch(`/api/navigation/categories`)
@@ -49,6 +50,12 @@ export default function CategoryPage() {
         }
         
         setCategory(foundCategory)
+
+        // Ielādējam subkategorijas
+        const subsRes = await fetch('/api/navigation/subcategories')
+        const subsData = await subsRes.json()
+        const categorySubs = subsData.filter((sub: any) => sub.category_id === foundCategory.id)
+        setSubcategories(categorySubs)
 
         const productsRes = await fetch(`/api/products?category=${foundCategory.id}&sort=${sortBy}`)
         const productsData = await productsRes.json()
@@ -106,6 +113,28 @@ export default function CategoryPage() {
            </p>
          )}
        </div>
+
+       {/* Pievienojam subkategoriju sarakstu */}
+        {subcategories.length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Apakškategorijas</h2>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {subcategories.map((sub) => (
+                <Link key={sub.id} href={`/${category?.slug}/${sub.slug}`}>
+                  <div className="bg-white p-4 rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer border border-gray-100 hover:border-blue-300">
+                    <div className="flex items-center space-x-3">
+                      <span className="text-2xl">{sub.icon || '📁'}</span>
+                      <div>
+                        <h3 className="font-medium text-gray-900">{sub.name}</h3>
+                        <p className="text-sm text-gray-500">Skatīt produktus</p>
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
 
        <div className="flex items-center justify-between mb-6 bg-white rounded-lg p-4 shadow-sm">
          <div className="flex items-center space-x-4">

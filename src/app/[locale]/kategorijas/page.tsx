@@ -255,6 +255,7 @@ function CategoryCard({ category, viewMode }: CategoryCardProps) {
   if (viewMode === 'list') {
     return (
       <div className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6">
+        {/* Galvenā kategorija - bez Link wrapper */}
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-6 flex-1">
             <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-white text-2xl font-bold">
@@ -262,13 +263,29 @@ function CategoryCard({ category, viewMode }: CategoryCardProps) {
             </div>
             
             <div className="flex-1">
-              <h3 className="text-xl font-bold text-gray-900 mb-2">
-                {category.name}
-              </h3>
-              {category.meta_description && (
-                <p className="text-gray-600 mb-3 line-clamp-2">
-                  {category.meta_description}
-                </p>
+              <Link href={`/kategorijas/${category.slug}`}>
+                <h3 className="text-xl font-bold text-gray-900 mb-2 hover:text-blue-600 cursor-pointer">
+                  {category.name}
+                </h3>
+              </Link>
+              
+              {/* Subkategorijas ar atsevišķiem linkiem */}
+              {category.subitems && category.subitems.length > 0 && (
+                <div className="space-y-2 mb-3">
+                  {category.subitems.slice(0, 3).map((sub) => (
+                    <Link key={sub.id} href={`/${category.slug}/${sub.slug}`}>
+                      <div className="flex items-center space-x-2 text-sm text-blue-600 hover:text-blue-800 cursor-pointer">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                        <span>{sub.name}</span>
+                      </div>
+                    </Link>
+                  ))}
+                  {category.subitems.length > 3 && (
+                    <div className="text-sm text-gray-500">
+                      +{category.subitems.length - 3} vairāk
+                    </div>
+                  )}
+                </div>
               )}
               
               <div className="flex items-center space-x-4 text-sm text-gray-500">
@@ -298,10 +315,10 @@ function CategoryCard({ category, viewMode }: CategoryCardProps) {
   }
 
   return (
-    <Link href={`/kategorijas/${category.slug}`}>
-      <div className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group cursor-pointer">
-        {/* Category Header */}
-        <div className="bg-gradient-to-br from-blue-500 to-purple-600 p-6 text-white relative overflow-hidden">
+    <div className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group">
+      {/* Galvenā kategorija header */}
+      <Link href={`/kategorijas/${category.slug}`}>
+        <div className="bg-gradient-to-br from-blue-500 to-purple-600 p-6 text-white relative overflow-hidden cursor-pointer">
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-16 translate-x-16"></div>
           <div className="relative">
             <div className="w-16 h-16 bg-white/20 rounded-xl flex items-center justify-center text-2xl font-bold mb-4">
@@ -324,49 +341,53 @@ function CategoryCard({ category, viewMode }: CategoryCardProps) {
             </div>
           </div>
         </div>
+      </Link>
 
-        {/* Category Content */}
-        <div className="p-6">
-          {category.meta_description && (
-            <p className="text-gray-600 mb-4 line-clamp-3">
-              {category.meta_description}
-            </p>
-          )}
+      {/* Subkategorijas saturs */}
+      <div className="p-6">
+        {category.meta_description && (
+          <p className="text-gray-600 mb-4 line-clamp-3">
+            {category.meta_description}
+          </p>
+        )}
 
-          {/* Subcategories */}
-          {category.subitems && category.subitems.length > 0 && (
-            <div className="space-y-3">
-              <h4 className="text-sm font-semibold text-gray-900">
-                Apakškategorijas:
-              </h4>
-              <div className="space-y-2">
-                {category.subitems.slice(0, 3).map((sub) => (
-                  <div key={sub.id} className="flex items-center space-x-2 text-sm text-gray-600">
+        {/* Subkategorijas ar atsevišķiem linkiem */}
+        {category.subitems && category.subitems.length > 0 && (
+          <div className="space-y-3">
+            <h4 className="text-sm font-semibold text-gray-900">
+              Apakškategorijas:
+            </h4>
+            <div className="space-y-2">
+              {category.subitems.slice(0, 3).map((sub) => (
+                <Link key={sub.id} href={`/${category.slug}/${sub.slug}`}>
+                  <div className="flex items-center space-x-2 text-sm text-blue-600 hover:text-blue-800 cursor-pointer p-2 rounded hover:bg-blue-50">
                     <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                     <span>{sub.name}</span>
                   </div>
-                ))}
-                {category.subitems.length > 3 && (
-                  <div className="text-sm text-gray-500">
-                    +{category.subitems.length - 3} vairāk
-                  </div>
-                )}
-              </div>
+                </Link>
+              ))}
+              {category.subitems.length > 3 && (
+                <div className="text-sm text-gray-500">
+                  +{category.subitems.length - 3} vairāk
+                </div>
+              )}
             </div>
-          )}
+          </div>
+        )}
 
-          {/* View Button */}
-          <div className="mt-6 pt-4 border-t border-gray-100">
-            <div className="flex items-center justify-between">
+        {/* View galvenās kategorijas poga */}
+        <div className="mt-6 pt-4 border-t border-gray-100">
+          <Link href={`/kategorijas/${category.slug}`}>
+            <div className="flex items-center justify-between cursor-pointer hover:text-blue-600">
               <div className="flex items-center space-x-2 text-sm text-gray-500">
                 <Eye className="w-4 h-4" />
                 <span>Skatīt kategoriju</span>
               </div>
               <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-blue-500 group-hover:translate-x-1 transition-all duration-200" />
             </div>
-          </div>
+          </Link>
         </div>
       </div>
-    </Link>
+    </div>
   )
 }
