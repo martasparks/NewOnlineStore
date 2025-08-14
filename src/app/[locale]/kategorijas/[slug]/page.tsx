@@ -129,7 +129,7 @@ useEffect(() => {
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Apakškategorijas</h2>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {subcategories.map((sub) => (
-                <Link key={sub.id} href={`/${category?.slug}/${sub.slug}`}>
+                <Link key={sub.id} href={`/kategorijas/${category?.slug}/${sub.slug}`}>
                   <div className="bg-white p-4 rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer border border-gray-100 hover:border-blue-300">
                     <div className="flex items-center space-x-3">
                       <span className="text-2xl">{sub.icon || '📁'}</span>
