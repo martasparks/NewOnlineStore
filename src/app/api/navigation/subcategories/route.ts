@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@lib/supabase/server'
+import { SupabaseClient } from '@supabase/supabase-js'
 
 // Pievienojam admin pārbaudes funkciju
-async function checkAdminPermissions(supabase: any) {
+async function checkAdminPermissions(supabase: SupabaseClient) {
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   
   if (authError || !user) {
