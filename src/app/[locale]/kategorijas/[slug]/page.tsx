@@ -11,14 +11,6 @@ import { ChevronRight, Grid, List } from 'lucide-react'
 import Link from 'next/link'
 import { ProductPlaceholder } from '@/components/ui/ProductPlaceholder'
 
-interface Category {
-  id: string
-  name: string
-  slug: string
-  meta_title?: string
-  meta_description?: string
-}
-
 interface Product {
   id: string
   name: string
@@ -29,10 +21,28 @@ interface Product {
   images: string[]
 }
 
+interface Category {
+  id: string
+  name: string
+  slug: string
+  meta_title?: string
+  meta_description?: string
+}
+
+interface Subcategory {
+  id: string
+  name: string
+  slug: string
+  category_id: string
+  icon?: string
+  meta_title?: string
+  meta_description?: string
+}
+
 export default function CategoryPage() {
   const params = useParams()
   const [category, setCategory] = useState<Category | null>(null)
-  const [subcategories, setSubcategories] = useState<any[]>([]) // Pievienots
+  const [subcategories, setSubcategories] = useState<Subcategory[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
@@ -51,10 +61,9 @@ useEffect(() => {
         
         setCategory(foundCategory)
 
-        // Ielādējam subkategorijas
         const subsRes = await fetch('/api/navigation/subcategories')
         const subsData = await subsRes.json()
-        const categorySubs = subsData.filter((sub: any) => sub.category_id === foundCategory.id)
+        const categorySubs = subsData.filter((sub: Subcategory) => sub.category_id === foundCategory.id)
         setSubcategories(categorySubs)
 
         const productsRes = await fetch(`/api/products?category=${foundCategory.id}&sort=${sortBy}`)
