@@ -6,17 +6,13 @@ import { useDebounce } from '@hooks/useDebounce'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Slider } from '@/components/ui/slider'
 import { Badge } from '@/components/ui/badge'
 import { 
   X, 
   Filter, 
   ChevronDown, 
-  ChevronUp, 
   Loader2,
-  AlertCircle,
-  RefreshCw,
   Search
 } from 'lucide-react'
 
@@ -53,8 +49,8 @@ export default function ProductFilters({
   const searchParams = useSearchParams()
   
   const [categories, setCategories] = useState<Category[]>([])
-  const [categoriesLoading, setCategoriesLoading] = useState(false)
-  const [categoriesError, setCategoriesError] = useState<string | null>(null)
+  const [, setCategoriesLoading] = useState(false)
+  const [, setCategoriesError] = useState<string | null>(null)
   
   const [dynamicPriceRange, setDynamicPriceRange] = useState({ min: 0, max: 1000 })
   const [priceRangeLoading, setPriceRangeLoading] = useState(true)
@@ -64,9 +60,7 @@ export default function ProductFilters({
   const [inStock, setInStock] = useState(false)
   const [featured, setFeatured] = useState(false)
   
-  const [showAllCategories, setShowAllCategories] = useState(false)
   const [showPrice, setShowPrice] = useState(true)
-  const [showAvailability, setShowAvailability] = useState(true)
   const [isUpdating, setIsUpdating] = useState(false)
   
   const [minPriceInput, setMinPriceInput] = useState('')
@@ -77,12 +71,6 @@ export default function ProductFilters({
 
   const debouncedPriceRange = useDebounce(priceRange, 500)
 
-  const visibleCategories = useMemo(() => 
-    showAllCategories ? categories : categories.slice(0, 5),
-    [categories, showAllCategories]
-  )
-  
-  const hasMoreCategories = categories.length > 5
   
   const activeFiltersCount = useMemo(() => {
     const hasMinPriceFilter = priceRange[0] > dynamicPriceRange.min
@@ -378,22 +366,22 @@ useEffect(() => {
   }
 
     const resetToDefaults = useCallback(() => {
-      if (dynamicPriceRange.min !== 0 || dynamicPriceRange.max !== 1000) {
-        setPriceRange([dynamicPriceRange.min, dynamicPriceRange.max])
-        setMinPriceInput(dynamicPriceRange.min.toString())
-        setMaxPriceInput(dynamicPriceRange.max.toString())
-      }
-    }, [dynamicPriceRange])
+    if (dynamicPriceRange.min !== 0 || dynamicPriceRange.max !== 1000) {
+      setPriceRange([dynamicPriceRange.min, dynamicPriceRange.max])
+      setMinPriceInput(dynamicPriceRange.min.toString())
+      setMaxPriceInput(dynamicPriceRange.max.toString())
+    }
+  }, [dynamicPriceRange])
 
-    // Pievienojiet šo useEffect pēc fetchPriceRange useEffect:
-    useEffect(() => {
-      if (!priceRangeLoading && dynamicPriceRange.min !== 0 && dynamicPriceRange.max !== 1000) {
-        // Ja nav URL parametru, iestatām default vērtības
-        if (!searchParams.has('minPrice') && !searchParams.has('maxPrice')) {
-          resetToDefaults()
-        }
+  // Pievienojiet šo useEffect pēc fetchPriceRange useEffect:
+  useEffect(() => {
+    if (!priceRangeLoading && dynamicPriceRange.min !== 0 && dynamicPriceRange.max !== 1000) {
+      // Ja nav URL parametru, iestatām default vērtības
+      if (!searchParams.has('minPrice') && !searchParams.has('maxPrice')) {
+        resetToDefaults()
       }
-    }, [priceRangeLoading, dynamicPriceRange, searchParams, resetToDefaults])
+    }
+  }, [priceRangeLoading, dynamicPriceRange, searchParams, resetToDefaults])
 
   return (
     <div className={`bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden transition-all duration-200 ${

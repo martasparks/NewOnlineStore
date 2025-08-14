@@ -31,6 +31,9 @@ interface APIErrorResponse {
   validationErrors?: ValidationError[]
 }
 
+// Narrow helper to avoid `any` for optional fields coming from initialData
+type WithGroupAndParent = { group_id?: string | number | null; parentSlug?: string | null }
+
 interface ProductModalProps {
   open: boolean
   onClose: () => void
@@ -159,12 +162,12 @@ useEffect(() => {
             ? initialData.subcategory_id.toString().trim()
             : undefined,
         group_id:
-          (initialData as any).group_id && (initialData as any).group_id.toString().trim() !== ''
-            ? (initialData as any).group_id.toString().trim()
+          initialData && 'group_id' in initialData && initialData.group_id
+            ? initialData.group_id.toString().trim() || undefined
             : undefined,
         parentSlug:
-          (initialData as any).parentSlug && (initialData as any).parentSlug.toString().trim() !== ''
-            ? (initialData as any).parentSlug.toString().trim()
+          (initialData as Product & WithGroupAndParent)?.parentSlug && String((initialData as Product & WithGroupAndParent).parentSlug).trim() !== ''
+            ? String((initialData as Product & WithGroupAndParent).parentSlug).trim()
             : undefined,
         dimensions: initialData.dimensions || {}
       }
