@@ -114,7 +114,7 @@ export default function SubcategoryPage() {
         <nav className="flex items-center space-x-2 text-sm text-gray-500 mb-6">
           <Link href="/" className="hover:text-gray-700">Sākums</Link>
           <ChevronRight className="w-4 h-4" />
-          <Link href={`/${category.slug}`} className="hover:text-gray-700">{category.name}</Link>
+          <Link href={`/kategorijas/${category.slug}`} className="hover:text-gray-700">{category.name}</Link>
           <ChevronRight className="w-4 h-4" />
           <span className="text-gray-900 font-medium">{subcategory.name}</span>
         </nav>
