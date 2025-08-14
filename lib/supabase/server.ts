@@ -37,12 +37,18 @@ export async function createClient() {
           },
           setAll(cookiesToSet) {
             try {
-              cookiesToSet.forEach(({ name, value, options }) => {
-                cookieStore.set(name, value, options)
-              })
-              console.log('Set cookies count:', cookiesToSet.length)
+              // Next.js 15+: cookies can only be modified in a Server Action or Route Handler.
+              // This server helper may be executed in RSC contexts (e.g., layout/page),
+              // where mutating cookies triggers a console error overlay. We therefore
+              // intentionally NO-OP here. Handle cookie writes in middleware or route handlers.
+              if (process.env.NODE_ENV === 'development' && cookiesToSet?.length) {
+                console.warn('Supabase cookie write skipped in RSC context. Use a Server Action or Route Handler to set cookies. Skipped count:', cookiesToSet.length)
+              }
             } catch (error) {
-              console.error('Error setting cookies:', error)
+              // Swallow any unexpected errors to keep RSC renders stable
+              if (process.env.NODE_ENV === 'development') {
+                console.error('Attempted cookie mutation in non-mutable context:', error)
+              }
             }
           },
         },

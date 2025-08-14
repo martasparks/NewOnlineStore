@@ -150,6 +150,22 @@ useEffect(() => {
       }
       return {
         ...initialData,
+        category_id:
+          initialData.category_id && initialData.category_id.toString().trim() !== ''
+            ? initialData.category_id.toString().trim()
+            : undefined,
+        subcategory_id:
+          initialData.subcategory_id && initialData.subcategory_id.toString().trim() !== ''
+            ? initialData.subcategory_id.toString().trim()
+            : undefined,
+        group_id:
+          (initialData as any).group_id && (initialData as any).group_id.toString().trim() !== ''
+            ? (initialData as any).group_id.toString().trim()
+            : undefined,
+        parentSlug:
+          (initialData as any).parentSlug && (initialData as any).parentSlug.toString().trim() !== ''
+            ? (initialData as any).parentSlug.toString().trim()
+            : undefined,
         dimensions: initialData.dimensions || {}
       }
     })

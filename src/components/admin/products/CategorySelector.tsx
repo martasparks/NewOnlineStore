@@ -95,9 +95,9 @@ export default function CategorySelector({
             </span>
           </Label>
           <Select 
-            value={subcategoryId || ''} 
+            value={subcategoryId ?? '__none__'} 
             onValueChange={(value: string) => {
-              onSubcategoryChange(value.trim() === '' ? null : value)
+              onSubcategoryChange(value === '__none__' ? null : value)
             }}
           >
             <SelectTrigger className="w-full">
@@ -105,7 +105,7 @@ export default function CategorySelector({
             </SelectTrigger>
             <SelectContent className="max-h-80">
               {/* Opcija "Nav apakškategorijas" */}
-              <SelectItem value="">
+              <SelectItem value="__none__">
                 <span className="text-gray-500 italic">Nav apakškategorijas</span>
               </SelectItem>
               

@@ -88,7 +88,10 @@ export default function CategoryModal({
     const { name, value } = e.target
     setCategory((prev) => ({
       ...prev,
-      [name]: name === 'order_index' ? parseInt(value) : value,
+      [name]:
+        name === 'order_index'
+          ? (value === '' ? 0 : (Number.isFinite(parseInt(value, 10)) ? parseInt(value, 10) : 0))
+          : value,
     }))
   }
 
@@ -125,7 +128,22 @@ export default function CategoryModal({
         subs.map((s) => (s.id === editingSub.id ? editingSub : s))
       )
     } else {
-      setSubcategories((subs) => [...subs, { ...editingSub!, id: undefined }])
+      setSubcategories((subs) => [
+        ...subs,
+        {
+          ...editingSub!,
+          id: undefined,
+          name: editingSub!.name.trim(),
+          slug: editingSub!.slug.trim(),
+          icon: (editingSub!.icon || '').trim(),
+          meta_title: (editingSub!.meta_title || '').trim(),
+          meta_description: (editingSub!.meta_description || '').trim(),
+          order_index:
+            typeof editingSub!.order_index === 'number' && !Number.isNaN(editingSub!.order_index)
+              ? editingSub!.order_index
+              : 0,
+        },
+      ])
     }
     setEditingSub(null)
   }
@@ -160,7 +178,15 @@ export default function CategoryModal({
             'Content-Type': 'application/json',
             'X-Requested-With': 'XMLHttpRequest'
           },
-          body: JSON.stringify(category),
+          body: JSON.stringify({
+          ...category,
+          name: category.name.trim(),
+          slug: category.slug.trim(),
+          url: (category.url || '').trim(),
+          meta_title: (category.meta_title || '').trim() || undefined,
+          meta_description: (category.meta_description || '').trim() || undefined,
+          order_index: Number.isFinite(Number(category.order_index)) ? Number(category.order_index) : 0,
+        }),
         })
 
         const savedCategory = await res.json()
@@ -189,8 +215,14 @@ export default function CategoryModal({
               },
               body: JSON.stringify({
                 ...sub,
+                name: (sub.name || '').trim(),
+                slug: (sub.slug || '').trim(),
+                icon: (sub.icon || '').trim() || undefined,
+                meta_title: (sub.meta_title || '').trim() || undefined,
+                meta_description: (sub.meta_description || '').trim() || undefined,
+                order_index: Number.isFinite(Number(sub.order_index)) ? Number(sub.order_index) : 0,
                 category_id: catId,
-                url: `/${category.slug}/${sub.slug}`
+                url: `/${category.slug}/${sub.slug}`,
               }),
             })
 
