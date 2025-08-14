@@ -162,6 +162,12 @@ export async function GET(request: NextRequest) {
       query = query.eq('category_id', category)
     }
 
+    // Filtrēšana pēc subcategory
+    const subcategory = searchParams.get('subcategory')
+    if (subcategory && /^[a-zA-Z0-9-]+$/.test(subcategory)) {
+      query = query.eq('subcategory_id', subcategory)
+    }
+
     const categoriesParam = searchParams.get('categories')
     if (categoriesParam) {
       const categorySlugs = categoriesParam.split(',').filter(slug => 
@@ -339,13 +345,27 @@ export async function POST(req: Request) {
       }, { status: 400 })
     }
 
-    const insertPayload = {
+    // Nodrošinām pareizu subcategory apstrādi
+    const cleanRest = {
       ...rest,
+      subcategory_id: rest.subcategory_id === '' || rest.subcategory_id === undefined ? null : rest.subcategory_id,
+      category_id: rest.category_id === '' || rest.category_id === undefined ? null : rest.category_id
+    }
+
+    const insertPayload = {
+      ...cleanRest,
       group_id: resolvedGroupId || null,
       created_by: user.id,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     }
+
+    console.log('POST - Insert payload:', {
+      category_id: insertPayload.category_id,
+      subcategory_id: insertPayload.subcategory_id,
+      group_id: insertPayload.group_id,
+      name: insertPayload.name
+    })
 
     const { data: createdRows, error } = await supabase
       .from('products')
@@ -540,10 +560,20 @@ export async function PUT(req: Request) {
       }
     }
 
-    const updatePayload = {
+    // Nodrošinām, ka subcategory_id tiek pareizi apstrādāts
+    const finalUpdateData = {
       ...updateData,
+      // Ja subcategory_id ir tukša virkne vai null, iestatām kā null
+      subcategory_id: updateData.subcategory_id === '' || updateData.subcategory_id === undefined ? null : updateData.subcategory_id,
+      category_id: updateData.category_id === '' || updateData.category_id === undefined ? null : updateData.category_id
+    }
+
+    const updatePayload = {
+      ...finalUpdateData,
       updated_at: new Date().toISOString()
     }
+
+    console.log('Final update data with subcategory handling:', finalUpdateData)
 
     console.log('Final update payload:', updatePayload)
 

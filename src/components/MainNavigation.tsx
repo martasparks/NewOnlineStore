@@ -172,7 +172,7 @@ export default function MainNavigation() {
                     </Link>
                   </div>
                   <Link 
-                    href="#" 
+                    href={`/kategorijas/${categories.find((c: Category) => c.name === hovered)?.slug}`}
                     className="text-sm text-gray-500 hover:text-red-600 transition-colors font-medium"
                   >
                     Skatīt visu kategoriju →

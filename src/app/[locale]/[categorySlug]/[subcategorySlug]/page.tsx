@@ -73,8 +73,8 @@ export default function SubcategoryPage() {
         }
         setSubcategory(foundSub)
 
-        // Ielādējam produktus
-        const productsRes = await fetch(`/api/products?subcategory=${foundSub.id}`)
+        // Ielādējam produktus pēc subcategory_id
+        const productsRes = await fetch(`/api/products?subcategory=${foundSub.id}&status=active`)
         const productsData = await productsRes.json()
         setProducts(productsData.products || [])
         

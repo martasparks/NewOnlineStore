@@ -260,6 +260,15 @@ useEffect(() => {
           category_id: product.category_id && product.category_id.trim() !== '' ? product.category_id.trim() : null
         }
 
+        console.log('Product before cleaning:', {
+          subcategory_id: product.subcategory_id,
+          category_id: product.category_id
+        })
+        console.log('Product after cleaning:', {
+          subcategory_id: cleanProduct.subcategory_id,
+          category_id: cleanProduct.category_id
+        })
+
         console.log('Original product.group_id:', product.group_id)
         console.log('Cleaned group_id:', cleanProduct.group_id)
 

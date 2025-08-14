@@ -2,7 +2,15 @@
 
 import { useState, useEffect } from 'react'
 import { Label } from '@/components/ui/label'
-import { Button } from '@/components/ui/button'
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  SelectLabel,
+  SelectSeparator
+} from '@/components/ui/select'
 import { Folder, Tag } from 'lucide-react'
 import { Category, Subcategory } from './types'
 
@@ -42,41 +50,42 @@ export default function CategorySelector({
 
   const selectedCategory = categories.find(cat => cat.id === categoryId)
 
+  // Grupējam subkategorijas pēc kategorijām hierarchiskam attēlojumam
+  const groupedSubcategories = categories.map(category => ({
+    category,
+    subcategories: subcategories.filter(sub => sub.category_id === category.id)
+  })).filter(group => group.subcategories.length > 0)
+
   return (
     <div className="space-y-6">
-      {/* Kategorijas izvēle */}
+      {/* Kategorijas izvēle ar Select */}
       <div className="space-y-3">
         <Label className="text-sm font-medium text-gray-700 flex items-center">
           <Folder className="w-4 h-4 mr-2" />
           Kategorija *
         </Label>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {categories.map((category) => (
-            <Button
-              key={category.id}
-              type="button"
-              variant={categoryId === category.id ? "default" : "outline"}
-              className={`p-4 h-auto justify-start text-left transition-all ${
-                categoryId === category.id 
-                  ? 'ring-2 ring-blue-500 bg-blue-50 border-blue-200' 
-                  : 'hover:bg-gray-50'
-              }`}
-              onClick={() => onCategoryChange(category.id)}
-            >
-              <div>
-                <p className="font-medium">{category.name}</p>
-                <p className="text-xs text-gray-500 mt-1">{category.slug}</p>
-              </div>
-            </Button>
-          ))}
-        </div>
+        <Select value={categoryId || ''} onValueChange={onCategoryChange}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Izvēlieties kategoriju..." />
+          </SelectTrigger>
+          <SelectContent>
+            {categories.map((category) => (
+              <SelectItem key={category.id} value={category.id}>
+                <div className="flex items-center space-x-2">
+                  <span className="font-medium">{category.name}</span>
+                  <span className="text-xs text-gray-500">({category.slug})</span>
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         {!categoryId && (
           <p className="text-sm text-red-500">Lūdzu izvēlieties kategoriju</p>
         )}
       </div>
 
-      {/* Apakškategorijas izvēle */}
-      {categoryId && filteredSubcategories.length > 0 && (
+      {/* Apakškategorijas izvēle ar hierarchisku Select */}
+      {categoryId && (
         <div className="space-y-3">
           <Label className="text-sm font-medium text-gray-700 flex items-center">
             <Tag className="w-4 h-4 mr-2" />
@@ -85,26 +94,77 @@ export default function CategorySelector({
               ({selectedCategory?.name})
             </span>
           </Label>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {filteredSubcategories.map((subcategory) => (
-              <Button
-                key={subcategory.id}
-                type="button"
-                variant={subcategoryId === subcategory.id ? "default" : "outline"}
-                className={`p-3 h-auto justify-start text-left transition-all ${
-                  subcategoryId === subcategory.id 
-                    ? 'ring-2 ring-purple-500 bg-purple-50 border-purple-200' 
-                    : 'hover:bg-gray-50'
-                }`}
-                onClick={() => onSubcategoryChange(subcategory.id)}
-              >
-                <div>
-                  <p className="font-medium text-sm">{subcategory.name}</p>
-                  <p className="text-xs text-gray-500 mt-1">{subcategory.slug}</p>
+          <Select 
+            value={subcategoryId || ''} 
+            onValueChange={(value: string) => {
+              onSubcategoryChange(value.trim() === '' ? null : value)
+            }}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Izvēlieties apakškategoriju (nav obligāti)..." />
+            </SelectTrigger>
+            <SelectContent className="max-h-80">
+              {/* Opcija "Nav apakškategorijas" */}
+              <SelectItem value="">
+                <span className="text-gray-500 italic">Nav apakškategorijas</span>
+              </SelectItem>
+              
+              <SelectSeparator />
+              
+              {/* Hierarchisks attēlojums */}
+              {groupedSubcategories.map((group) => (
+                <div key={group.category.id}>
+                  {/* Kategorijas nosaukums kā label */}
+                  <SelectLabel className="text-xs uppercase text-gray-600 font-bold tracking-wider">
+                    {group.category.name}
+                  </SelectLabel>
+                  
+                  {/* Šīs kategorijas subkategorijas ar atkāpi */}
+                  {group.subcategories.map((subcategory) => (
+                    <SelectItem 
+                      key={subcategory.id} 
+                      value={subcategory.id}
+                      className="pl-6"
+                      disabled={group.category.id !== categoryId}
+                    >
+                      <div className="flex items-center space-x-2">
+                        <span className={group.category.id === categoryId ? 'font-medium' : 'text-gray-400'}>
+                          {subcategory.name}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          ({subcategory.slug})
+                        </span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                  
+                  {/* Atdalītājs starp kategorijām */}
+                  {group !== groupedSubcategories[groupedSubcategories.length - 1] && (
+                    <SelectSeparator />
+                  )}
                 </div>
-              </Button>
-            ))}
-          </div>
+              ))}
+              
+              {/* Ja nav apakškategoriju vispār */}
+              {groupedSubcategories.length === 0 && (
+                <div className="p-4 text-center text-gray-500 text-sm">
+                  Nav izveidotas apakškategorijas
+                </div>
+              )}
+            </SelectContent>
+          </Select>
+          
+          {/* Informācija par izvēlēto apakškategoriju */}
+          {subcategoryId && filteredSubcategories.length > 0 && (
+            <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center space-x-2">
+                <Tag className="w-4 h-4 text-blue-600" />
+                <span className="text-sm text-blue-800">
+                  Izvēlēta: <strong>{filteredSubcategories.find(sub => sub.id === subcategoryId)?.name}</strong>
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
